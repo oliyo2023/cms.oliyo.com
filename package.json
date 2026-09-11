@@ -17,7 +17,8 @@
     "deploy": "opennextjs-cloudflare build && wrangler deploy",
     "db:generate": "drizzle-kit generate",
     "db:remote": "wrangler d1 migrations apply oliyo-db --remote",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "ship": "tsx scripts/ship.ts"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "1.20.6",

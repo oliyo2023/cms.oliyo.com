@@ -46,6 +46,21 @@ pnpm typecheck
 
 打开 http://localhost:3000 。`dev-data/`、`.env.local`、`.dev.vars` 均不入库（见 `.gitignore`）。
 
+## 提交与推送
+
+```bash
+pnpm ship -m "<提交说明>" -- <改动的文件...>
+```
+
+一条命令完成 **类型检查 → 暂存指定文件 → 提交 → 推送**：
+
+- 先跑 `pnpm typecheck`，不通过就中止，不产生提交（确实要跳过时加 `--skip-checks`）。
+- 只暂存 `--` 之后列出的文件，避免把并发编辑中的半成品一起提交；不传文件则暂存全部改动并给出警告。
+- 拒绝暂存 `.env*`、`.dev.vars`、`dev-data/`、`.wrangler/`、`.commandcode/`、`*.pem`、`*.key` 等敏感路径。
+- 无 upstream 的分支自动 `push -u origin <分支>`。
+
+编码代理的自动收尾约定写在 `.omp/rules/auto-ship.md`（always-apply 规则）：任务改动了文件即自行 `pnpm ship`，无需额外交代；删除该文件即可关闭。
+
 ## 配置
 
 优先级：**管理端设置页（D1 `settings` 表） > 部署环境变量/Secret > 内置默认**。
@@ -84,7 +99,8 @@ src/app/            路由（公开站 / manage 管理端 / api）
 src/components/     共享组件（Modal、站点头尾、首页区块）
 src/lib/            auth / oauth / config / db(D1) / repos(Drizzle)
 drizzle/            迁移 SQL（0001 初始结构、0002 oauth_accounts）
-scripts/            本地迁移、种子、AI stub（E2E 用）
+scripts/            本地迁移、种子、AI stub（E2E 用）、ship（提交推送）
+.omp/rules/         编码代理规则（auto-ship：收尾自动提交推送）
 ```
 
 ## License
