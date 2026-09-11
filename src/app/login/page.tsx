@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import BrandPanel from "./brand-panel";
 import LoginForm from "./login-form";
 import MotionRoot from "@/components/motion-root";
-import { getVar } from "@/lib/config";
+import { resolveVar } from "@/lib/config";
 import { oauthErrorText } from "@/lib/oauth";
 
 export const metadata: Metadata = {
@@ -18,7 +18,13 @@ export default async function LoginPage({
   searchParams: Promise<{ register?: string; oauth_error?: string; provider?: string }>;
 }) {
   const { register, oauth_error, provider } = await searchParams;
-  const providers = (["github", "google"] as const).filter((p) => Boolean(getVar(`${p.toUpperCase()}_CLIENT_ID`)));
+  type OAuthId = "github" | "google";
+  const providers = (
+    await Promise.all([
+      resolveVar("GITHUB_CLIENT_ID").then((v): OAuthId | null => (v ? "github" : null)),
+      resolveVar("GOOGLE_CLIENT_ID").then((v): OAuthId | null => (v ? "google" : null)),
+    ])
+  ).filter((p): p is OAuthId => p !== null);
   const oauthError =
     oauth_error !== undefined
       ? oauthErrorText(provider === "google" ? "google" : "github", oauth_error)

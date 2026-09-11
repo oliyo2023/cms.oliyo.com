@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookieHeader, newToken, SESSION_TTL_MS, sha256Hex } from "./auth";
-import { getVar, isVarTruthy } from "./config";
+import { getVar, isVarTruthy, resolveVar } from "./config";
 import {
   UNUSABLE_PASSWORD,
   createSession,
@@ -38,8 +38,8 @@ export function safeNext(raw: string | null): string {
   return "/manage";
 }
 
-function stateSecret(): string | null {
-  return process.env.OAUTH_STATE_SECRET ?? null;
+async function stateSecret(): Promise<string | null> {
+  return (await resolveVar("OAUTH_STATE_SECRET")) ?? null;
 }
 
 export function signState(state: string, secret: string): string {
@@ -60,14 +60,14 @@ export async function codeChallengeS256(verifier: string): Promise<string> {
  * 生成一次性 state：32 字节随机 + HMAC 签名，payload 里绑定 provider / next / PKCE verifier。
  * 回调时用 cookie + 签名双重校验（无状态、防 CSRF、防跨 provider 复用 state）。
  */
-export function issueOAuthState(
+export async function issueOAuthState(
   req: Request,
   provider: OAuthProvider,
   next: string,
   verifier?: string,
-): { state: string; header: string } {
+): Promise<{ state: string; header: string }> {
   const state = newToken();
-  const secret = stateSecret();
+  const secret = await stateSecret();
   const value = JSON.stringify({
     state,
     provider,
@@ -91,14 +91,14 @@ export function issueOAuthState(
 type StatePayload = { state?: string; provider?: string; next?: string; exp?: number; verifier?: string };
 
 /** 校验：cookie 存在、未过期、签名一致、state 与回传一致、provider 匹配。 */
-export function verifyOAuthState(
+export async function verifyOAuthState(
   req: Request,
   returned: string | null,
   provider: OAuthProvider,
-): { ok: true; next: string; verifier: string | null } | { ok: false } {
+): Promise<{ ok: true; next: string; verifier: string | null } | { ok: false }> {
   const raw = req.headers.get("cookie")?.match(/(?:^|;\s*)oauth_state=([^;]+)/)?.[1];
   if (!raw || !returned) return { ok: false };
-  const secret = stateSecret();
+  const secret = await stateSecret();
   const decoded = decodeURIComponent(raw);
   let payload: StatePayload | null = null;
   if (secret) {

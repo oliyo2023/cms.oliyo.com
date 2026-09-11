@@ -25,6 +25,13 @@ export function getVar(name: string): string | undefined {
 
 export const isVarTruthy = (v: string | undefined) => v === "true" || v === "1";
 
+/** 单项解析：D1 settings > 部署 env/secret > 内置默认。 */
+export async function resolveVar(name: string): Promise<string | undefined> {
+  const fromDb = await getSettingsIn([name]);
+  const dbVal = fromDb[name];
+  return dbVal !== undefined && dbVal !== "" ? dbVal : getVar(name);
+}
+
 /**
  * 后台可配置项解析：D1 settings（管理端设置页）> 环境变量 > 内置默认。
  * DB 无值时回落 getVar（环境变量/默认），使部署 secret 与运行时配置共存。

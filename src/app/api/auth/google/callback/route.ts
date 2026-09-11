@@ -1,4 +1,4 @@
-import { getVar } from "@/lib/config";
+import { resolveVar } from "@/lib/config";
 import { loginOAuthProfile, oauthFail, siteUrl, verifyOAuthState } from "@/lib/oauth";
 import type { OAuthProfile } from "@/lib/oauth";
 
@@ -51,15 +51,15 @@ async function exchangeCode(
 export async function GET(req: Request) {
   const url = new URL(req.url);
   if (url.searchParams.get("error")) return oauthFail("google", "denied");
-  const verified = verifyOAuthState(req, url.searchParams.get("state"), "google");
+  const verified = await verifyOAuthState(req, url.searchParams.get("state"), "google");
   if (!verified.ok) return oauthFail("google", "invalid_state");
-  const clientId = getVar("GOOGLE_CLIENT_ID");
-  const clientSecret = getVar("GOOGLE_CLIENT_SECRET");
+  const clientId = await resolveVar("GOOGLE_CLIENT_ID");
+  const clientSecret = await resolveVar("GOOGLE_CLIENT_SECRET");
   if (!clientId || !clientSecret) return oauthFail("google", "misconfigured");
 
   const code = url.searchParams.get("code");
   if (!code || !verified.verifier) return oauthFail("google", "token_failed");
-  const callback = `${siteUrl(req, getVar("SITE_URL"))}/api/auth/google/callback`;
+  const callback = `${siteUrl(req, await resolveVar("SITE_URL"))}/api/auth/google/callback`;
   const idToken = await exchangeCode(code, callback, clientId, clientSecret, verified.verifier);
   if (!idToken) return oauthFail("google", "token_failed");
 

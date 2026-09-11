@@ -6,6 +6,7 @@ import {
   Clapperboard,
   Eye,
   EyeOff,
+  Fingerprint,
   Image as ImageIcon,
   KeyRound,
   Loader2,
@@ -72,6 +73,21 @@ const TABS: TabDef[] = [
       "VIDEO_POLL_URL",
     ],
     wide: ["VIDEO_BASE_URL", "VIDEO_MODEL", "VIDEO_POLL_URL"],
+  },
+  {
+    id: "oauth",
+    title: "第三方登录",
+    desc: "GitHub / Google 登录；Client ID 留空即隐藏对应登录入口，改动立即生效。",
+    icon: Fingerprint,
+    names: [
+      "SITE_URL",
+      "OAUTH_STATE_SECRET",
+      "GITHUB_CLIENT_ID",
+      "GITHUB_CLIENT_SECRET",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+    ],
+    wide: ["SITE_URL", "OAUTH_STATE_SECRET"],
   },
 ];
 

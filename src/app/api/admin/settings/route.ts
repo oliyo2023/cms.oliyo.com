@@ -28,6 +28,13 @@ export const AI_FIELDS: FieldSpec[] = [
   { name: "VIDEO_ASPECT", label: "画幅", secret: false, hint: "如 16:9、9:16" },
   { name: "VIDEO_SECONDS", label: "时长（秒）", secret: false, hint: "4 - 12" },
   { name: "VIDEO_POLL_URL", label: "任务查询 URL 模板", secret: false, hint: "支持 {id}、{model} 占位符" },
+  // —— 第三方登录：DB 值优先于部署 env/secret（与 AI 配置同优先级）——
+  { name: "SITE_URL", label: "站点地址", secret: false, hint: "如 https://cms.oliyo.com，OAuth 回调基址" },
+  { name: "OAUTH_STATE_SECRET", label: "State 签名密钥", secret: true, hint: "≥32 位随机串；未配置时 state 校验退化为弱模式" },
+  { name: "GITHUB_CLIENT_ID", label: "GitHub Client ID", secret: false, hint: "留空 = 隐藏 GitHub 登录入口" },
+  { name: "GITHUB_CLIENT_SECRET", label: "GitHub Client Secret", secret: true, hint: "OAuth App 密钥" },
+  { name: "GOOGLE_CLIENT_ID", label: "Google Client ID", secret: false, hint: "留空 = 隐藏 Google 登录入口" },
+  { name: "GOOGLE_CLIENT_SECRET", label: "Google Client Secret", secret: true, hint: "OAuth 客户端密钥" },
 ];
 
 const FIELD_NAMES = AI_FIELDS.map((f) => f.name);

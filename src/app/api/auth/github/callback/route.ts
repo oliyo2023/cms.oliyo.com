@@ -1,4 +1,4 @@
-import { getVar } from "@/lib/config";
+import { resolveVar } from "@/lib/config";
 import { loginOAuthProfile, oauthFail, siteUrl, verifyOAuthState } from "@/lib/oauth";
 import type { OAuthProfile } from "@/lib/oauth";
 
@@ -34,15 +34,15 @@ async function githubApi<T>(token: string, path: string): Promise<T | null> {
 export async function GET(req: Request) {
   const url = new URL(req.url);
   if (url.searchParams.get("error")) return oauthFail("github", "denied");
-  const verified = verifyOAuthState(req, url.searchParams.get("state"), "github");
+  const verified = await verifyOAuthState(req, url.searchParams.get("state"), "github");
   if (!verified.ok) return oauthFail("github", "invalid_state");
-  const clientId = getVar("GITHUB_CLIENT_ID");
-  const clientSecret = getVar("GITHUB_CLIENT_SECRET");
+  const clientId = await resolveVar("GITHUB_CLIENT_ID");
+  const clientSecret = await resolveVar("GITHUB_CLIENT_SECRET");
   if (!clientId || !clientSecret) return oauthFail("github", "misconfigured");
 
   const code = url.searchParams.get("code");
   if (!code) return oauthFail("github", "token_failed");
-  const callback = `${siteUrl(req, getVar("SITE_URL"))}/api/auth/github/callback`;
+  const callback = `${siteUrl(req, await resolveVar("SITE_URL"))}/api/auth/github/callback`;
   const token = await exchangeCode(code, callback, clientId, clientSecret);
   if (!token) return oauthFail("github", "token_failed");
 
