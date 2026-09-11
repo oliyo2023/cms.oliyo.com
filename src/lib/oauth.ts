@@ -114,8 +114,10 @@ export async function verifyOAuthState(
     const expected = Buffer.from(signState(payload.state, secret), "hex");
     const actual = Buffer.from(sig, "hex");
     if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return { ok: false };
-  } else if (decoded !== returned) {
+  } else {
     // 未配置 OAUTH_STATE_SECRET：退化为「cookie 值必须等于回传 state」，无法绑定 provider/next。
+    // 注意：不匹配必须拒绝——这里曾是反向判断，既放行了伪造 state，又拒绝了正常登录。
+    if (decoded !== returned) return { ok: false };
     return { ok: true, next: "/manage", verifier: null };
   }
   if (!payload) return { ok: false };
