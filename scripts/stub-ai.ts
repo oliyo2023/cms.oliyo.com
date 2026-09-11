@@ -61,6 +61,17 @@ const server = http.createServer(async (req, res) => {
   const isRewrite = userMsg.includes("原文如下") || userMsg.includes("改写");
   const topic = (userMsg.match(/(?:^|\n)主题[:：]\s*([^\n]+)/)?.[1] ?? userMsg.split("\n")[0]).slice(0, 40);
   const isDrama = userMsg.includes("集数：");
+  const isKeywords = userMsg.includes("输出示例：[");
+  const keywordsSample = JSON.stringify([
+    "创作者如何用 AI 省下每天两小时",
+    "被算法投喂三年后我重新学会了阅读",
+    "一人公司：三个人的活怎么一个人干完",
+    "把 AI 当实习生带的一个月",
+    "内容创作者的护城河还剩什么",
+    "我用一周记录了自己的注意力去向",
+    "为什么好工具反而让人更焦虑",
+    "从零开始做垂直小号的 90 天",
+  ]);
   const drama = JSON.stringify({
     title: "豪门遗嘱",
     logline: "外卖员意外拿到豪门遗嘱，每集一个反转。",
@@ -87,7 +98,13 @@ const server = http.createServer(async (req, res) => {
       },
     ],
   });
-  const full = isDrama ? drama : isRewrite ? rewriteSample(userMsg) : sampleArticle(topic || userMsg);
+  const full = isDrama
+    ? drama
+    : isKeywords
+      ? keywordsSample
+      : isRewrite
+        ? rewriteSample(userMsg)
+        : sampleArticle(topic || userMsg);
 
   if (url.pathname === "/v1/images/generations") {
     res.writeHead(200, { "Content-Type": "application/json" });

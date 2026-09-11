@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, Eraser, FilePlus2, Image as ImageIcon, Loader2, Play, Sparkles } from "lucide-react";
+import { Copy, Eraser, FilePlus2, Image as ImageIcon, Loader2, Play, Sparkles, WandSparkles } from "lucide-react";
 import { btnGhost, btnPrimary, cx, inputCls } from "@/components/ui";
 import { postSse } from "@/lib/sse-client";
 import { AUDIENCES, buildImagePrompt, TONES } from "@/lib/prompts";
@@ -30,6 +30,9 @@ export default function GeneratePage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [imgBusy, setImgBusy] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [keywords, setKeywords] = useState<string[]>([]);
+  const [kwBusy, setKwBusy] = useState(false);
+  const [kwError, setKwError] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const outRef = useRef<HTMLTextAreaElement>(null);
 
@@ -86,6 +89,28 @@ export default function GeneratePage() {
 
   function stop() {
     abortRef.current?.abort();
+  }
+
+  async function genKeywords() {
+    setKwBusy(true);
+    setKwError("");
+    try {
+      const res = await fetch("/api/ai/keywords", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seed: topic.trim() || undefined, tone, audience }),
+      });
+      const data = (await res.json()) as { keywords?: string[]; error?: string };
+      if (!res.ok || !data.keywords?.length) {
+        setKwError(data.error ?? "生成失败，请重试");
+        return;
+      }
+      setKeywords(data.keywords);
+    } catch {
+      setKwError("网络错误，请重试");
+    } finally {
+      setKwBusy(false);
+    }
   }
 
   async function saveAsDraft() {
@@ -152,8 +177,41 @@ export default function GeneratePage() {
       <div className="grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
         <section className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
           <div>
-            <label className="mb-1 block text-xs text-zinc-400">主题 / 关键词 *</label>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <label className="block text-xs text-zinc-400">主题 / 关键词 *</label>
+              <button
+                type="button"
+                className={cx(btnGhost, "px-2 py-0.5 text-[11px]")}
+                disabled={kwBusy}
+                onClick={() => void genKeywords()}
+                title="按当前主题方向与文风/读者，生成一批候选选题"
+              >
+                {kwBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <WandSparkles className="h-3 w-3" />}
+                {kwBusy ? "生成中…" : "AI 生成关键词"}
+              </button>
+            </div>
             <textarea className={cx(inputCls, "h-16 resize-none")} value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="例如：AI 时代如何保护注意力" />
+            {kwError && <p className="mt-1 text-[11px] text-red-400">{kwError}</p>}
+            {keywords.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {keywords.map((k, i) => (
+                  <button
+                    key={`${i}-${k}`}
+                    type="button"
+                    onClick={() => setTopic(k)}
+                    title="点击填入主题"
+                    className={cx(
+                      "rounded-lg border px-2 py-1 text-left text-[11px] leading-4 transition",
+                      topic.trim() === k
+                        ? "border-indigo-500 bg-indigo-600/15 text-indigo-300"
+                        : "border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:border-indigo-600/60 hover:text-zinc-200",
+                    )}
+                  >
+                    {k}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <label className="mb-1 block text-xs text-zinc-400">切入角度（可选）</label>
