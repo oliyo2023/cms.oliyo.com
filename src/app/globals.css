@@ -347,3 +347,64 @@ html[data-admin-theme="light"] .admin {
 html[data-admin-theme="light"] .admin * {
   scrollbar-color: #d4d4d8 transparent;
 }
+
+/* ---------------------------------------------------------------------------
+   Admin collapsed sidebar (desktop only)
+   折叠态由 <html data-admin-nav> 驱动、纯 CSS 生效，React 不参与首帧布局，
+   因此刷新时不会出现「先展宽再收回」。选择器未分层，优先级高于 Tailwind 的
+   `lg:w-56`（同层媒体查询内的单类选择器）。
+   标签不是 display:none 而是视觉隐藏：图标导航若丢掉可访问名称，
+   屏幕阅读器就只剩一串无语义图标（nav-label-icon）。
+--------------------------------------------------------------------------- */
+
+@media (min-width: 1024px) {
+  html[data-admin-nav="collapsed"] .admin .admin-rail {
+    width: 4.25rem;
+  }
+
+  html[data-admin-nav="collapsed"] .admin .admin-rail .admin-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  /* 图标居中、去掉为文字留的间距；点击区仍占满整条轨道宽度 */
+  html[data-admin-nav="collapsed"] .admin .admin-rail .admin-item {
+    justify-content: center;
+    gap: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  /* 品牌块与折叠按钮由左右并排改为上下堆叠，避免在窄轨道里挤压 */
+  html[data-admin-nav="collapsed"] .admin .admin-rail .admin-rail-head {
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.5rem;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  html[data-admin-nav="collapsed"] .admin .admin-rail .admin-rail-foot {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  /* 主题三档在窄轨道里竖排（横排约 92px，超出轨道宽度） */
+  html[data-admin-nav="collapsed"] .admin .admin-rail .admin-theme-group {
+    flex-direction: column;
+  }
+
+  html[data-admin-nav="collapsed"] .admin .admin-rail .admin-user-row,
+  html[data-admin-nav="collapsed"] .admin .admin-rail .admin-theme-row {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+}

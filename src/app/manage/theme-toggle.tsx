@@ -62,12 +62,12 @@ export default function ThemeToggle() {
   }
 
   return (
-    <div className="flex items-center justify-between px-3 pt-1">
-      <span className="text-[11px] text-zinc-500">主题</span>
+    <div className="admin-theme-row flex items-center justify-between px-3 pt-1">
+      <span className="admin-label text-[11px] text-zinc-500">主题</span>
       <div
         role="group"
         aria-label="界面主题"
-        className="flex items-center gap-0.5 rounded-lg border border-zinc-800 bg-zinc-900/60 p-0.5"
+        className="admin-theme-group flex items-center gap-0.5 rounded-lg border border-zinc-800 bg-zinc-900/60 p-0.5"
       >
         {OPTIONS.map(({ id, label, icon: Icon }) => (
           <button
