@@ -72,16 +72,82 @@ pnpm ship -m "<提交说明>" -- <改动的文件...>
 | 注册 | `REGISTRATION_OPEN`、`NEW_USER_*_QUOTA` | 注册开关与新用户默认配额 |
 | 种子管理员 | `ADMIN_EMAIL`、`ADMIN_PASSWORD` | 仅 `pnpm seed` 使用 |
 
-### OAuth 接入步骤
+### 第三方登录（GitHub / Google）
 
-1. GitHub：<https://github.com/settings/developers> 建 OAuth App，回调 `https://<域名>/api/auth/github/callback`
-2. Google：<https://console.cloud.google.com/apis/credentials> 建 OAuth Client（Web），
-   回调 `https://<域名>/api/auth/google/callback`，scope 仅 `openid email profile`
-3. 把 Client ID / Secret 填入后台「系统设置 → 第三方登录」（或用 `wrangler secret put`），
-   生成一个 ≥32 位随机串填入「State 签名密钥」，`SITE_URL` 填生产域名
+六个配置项，两个 provider 各三项：`{PROVIDER}_CLIENT_ID`、`{PROVIDER}_CLIENT_SECRET`，
+外加两个公共项 `SITE_URL`（回调基址）与 `OAUTH_STATE_SECRET`（state 签名密钥）。
+
+配置位置二选一，**D1 `settings` 表优先于环境变量/Secret**：
+
+- 后台「系统设置 → 第三方登录」（需要先能登录，见下方「首次开通顺序」）；或
+- `wrangler secret put`（本项目生产 Worker 名为 `ai-wechat-cms`）。
+
+登录页**只按 `*_CLIENT_ID` 是否存在**决定是否显示对应按钮，留空即隐藏，改动立即生效、无需重新部署。
+
+#### 回调地址（必须与 provider 侧填写的完全一致）
+
+| 环境 | GitHub / Google 回调 URL |
+| --- | --- |
+| 生产 | `https://ai-wechat-cms.oliyo.workers.dev/api/auth/{github,google}/callback` |
+| 本地 | `http://localhost:3000/api/auth/{github,google}/callback` |
+
+回调基址取自 `SITE_URL`；未配置时回落到当前请求的 origin（生产下通常也对，但显式配置更稳、且能防回调劫持）。
+
+#### GitHub
+
+1. <https://github.com/settings/developers> → **New OAuth App**（不是 GitHub App）
+2. **Authorization callback URL** 填上表对应地址（GitHub 每个 App 只能填一个 URL，
+   要在本地与生产同时用需建两个 App）
+3. 代码请求的 scope 固定为 `read:user user:email`，无需在 App 上额外勾选
+4. 取 **Client ID** 与 **Client Secret**
+
+#### Google
+
+1. <https://console.cloud.google.com/apis/credentials> 先配置 **OAuth 同意屏幕**（External 即可）
+2. → **创建凭据 → OAuth 客户端 ID → 网页应用**
+3. **已获授权的重定向 URI** 填上表对应地址（可加多条，本地与生产可共存）
+4. 代码请求 scope `openid email profile`，并启用 PKCE（S256）；无需配置「已获授权的 JavaScript 来源」
+5. 取 **客户端 ID** 与 **客户端密钥**
+
+> 同意屏幕处于「测试」状态时，只有加入测试用户名单的 Google 账号能登录；对外开放需「发布应用」。
+
+#### State 签名密钥（必配）
+
+`OAUTH_STATE_SECRET` 未配置时，state 校验会**退化为弱模式**（只比对 cookie 与回传值，
+无法绑定 provider/next，也失去 HMAC 防护）。生成并写入：
+
+```bash
+openssl rand -base64 48 | pnpm exec wrangler secret put OAUTH_STATE_SECRET
+```
+
+（或填入后台「系统设置 → 第三方登录 → State 签名密钥」，同样 ≥32 位随机串。）
+
+#### 首次开通顺序
+
+新建的库没有管理员，而「系统设置」页需要管理员才能进，所以先解决账号：
+
+```bash
+# ① 在 /login?register=1 注册一个邮箱密码账号，② 提升为管理员
+pnpm exec wrangler d1 execute ai-wechat-cms --remote \
+  --command "UPDATE users SET role='admin' WHERE email='you@example.com';"
+```
+
+之后登录后台，在「系统设置 → 第三方登录」填 GitHub / Google 的 ID 与 Secret 即可。
+（也可以先用 `wrangler secret put` 配好 OAuth，再用 GitHub/Google 登录，
+但该方式新建的账号同样是普通用户，仍需上面的 `UPDATE` 提升。）
+
+#### 账号归属规则
+
+- 同一 provider 的同一 subject 已绑定 → 直接登录
+- 否则按邮箱匹配已有账号 → **自动绑定**该 provider（一个账号可绑多个 provider）
+- 都没有 → 建新账号，但要求 `REGISTRATION_OPEN=true`，否则报「暂未开放注册」
+- 新建账号 `role='user'`，且没有本地密码（可用登录后的「系统设置 → 账户安全」设置）
 
 安全设计：state 经 HMAC 签名且绑定 provider；Google 走 PKCE；只信任 provider 侧已验证邮箱
 （未验证邮箱的「同邮箱自动绑定」会被拒绝，防账号接管）；Client Secret 读取接口只返回尾号。
+
+**本地开发**：上述配置换成本地回调地址写入 `.env.local`（`SITE_URL=http://localhost:3000`），
+`.env.local` 与 `.dev.vars` 均不入库。
 
 ## 部署（Cloudflare）
 
