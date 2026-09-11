@@ -1,0 +1,64 @@
+/**
+ * AI 视频任务的「提交 + 轮询」客户端协议。
+ *
+ * 服务端 `POST /api/ai/video` 只负责建任务并返回 taskId（异步任务不在请求内完成），
+ * 完成地址要按 pollMs 轮询 `GET /api/ai/video?id=` 才能拿到。管理端三处都要走这套
+ * 流程（作品展示的生成弹窗、短剧的逐镜头生成、AI 视频栏目），集中在这里避免三份漂移。
+ */
+
+/** 轮询上限；超过即视为仍在排队，交由用户稍后在「历史记录」查看。 */
+const MAX_POLL_ATTEMPTS = 8;
+/** 单次轮询间隔上限，服务端给的 pollMs 再大也不超过它。 */
+const MAX_POLL_MS = 15000;
+
+export type VideoJobResult =
+  | { ok: true; url: string }
+  | { ok: false; message: string; unconfigured?: boolean };
+
+function sleep(ms: number): Promise<void> {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  setTimeout(resolve, ms);
+  return promise;
+}
+
+export async function runVideoJob(prompt: string, onProgress?: (message: string) => void): Promise<VideoJobResult> {
+  onProgress?.("已提交任务，等待生成…");
+
+  let res: Response;
+  try {
+    res = await fetch("/api/ai/video", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
+  } catch {
+    return { ok: false, message: "网络错误" };
+  }
+  const data = (await res.json().catch(() => null)) as
+    | { configured?: boolean; message?: string; taskId?: string; pollMs?: number; error?: string }
+    | null;
+  if (res.status === 501 || data?.configured === false) {
+    return { ok: false, unconfigured: true, message: data?.message ?? data?.error ?? "视频生成服务未配置" };
+  }
+  if (!res.ok || !data?.taskId) return { ok: false, message: data?.error ?? "提交失败" };
+
+  const interval = Math.min(data.pollMs ?? MAX_POLL_MS, MAX_POLL_MS);
+  for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
+    await sleep(interval);
+    let pollRes: Response;
+    try {
+      pollRes = await fetch(`/api/ai/video?id=${encodeURIComponent(data.taskId)}`);
+    } catch {
+      return { ok: false, message: "网络错误" };
+    }
+    const poll = (await pollRes.json().catch(() => null)) as
+      | { ok?: boolean; status?: string; url?: string; message?: string }
+      | null;
+    if (poll?.ok && poll.status === "done" && poll.url) return { ok: true, url: poll.url };
+    if (poll?.status === "error" || poll?.status === "failed" || pollRes.status >= 400) {
+      return { ok: false, message: poll?.message ?? "任务查询失败" };
+    }
+    onProgress?.(`生成中（异步任务，轮询第 ${i + 1} 次）…`);
+  }
+  return { ok: false, message: "任务仍在排队，请稍后到「历史记录」查看；或改用素材库上传视频后发布。" };
+}
