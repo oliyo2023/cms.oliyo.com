@@ -23,6 +23,13 @@ export type SiteSeo = {
   indexable: boolean;
 };
 
+/**
+ * 默认标题后缀。刻意不把完整标题（含「创作台」）写进 config 默认值：
+ * 那样 SITE_TITLE 永远非空，只改「站点名称」的用户会得到后缀仍是旧站名的标题
+ * （`|| name` 会变成死代码）。这里让首页标题由站点名称推导，名称一改即同步。
+ */
+const DEFAULT_TAGLINE = "AI 生成图文 · 智能洗稿 · 公众号排版";
+
 export const getSiteSeo = cache(async (): Promise<SiteSeo> => {
   const v = await resolveVars([
     "SITE_NAME",
@@ -36,7 +43,7 @@ export const getSiteSeo = cache(async (): Promise<SiteSeo> => {
   const name = v.SITE_NAME?.trim() || "创作台";
   return {
     name,
-    title: v.SITE_TITLE?.trim() || name,
+    title: v.SITE_TITLE?.trim() || `${name} — ${DEFAULT_TAGLINE}`,
     description: v.SITE_DESCRIPTION?.trim() ?? "",
     keywords: (v.SITE_KEYWORDS ?? "")
       .split(",")
