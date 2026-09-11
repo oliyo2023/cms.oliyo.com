@@ -26,10 +26,10 @@ export default async function ManageLayout({ children }: { children: React.React
   const user = await currentUser();
   if (!user) redirect("/login");
   return (
-    <div className="admin flex min-h-screen bg-zinc-950">
+    <div className="admin flex min-h-screen flex-col bg-zinc-950 lg:flex-row">
       <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
       <Nav user={user} />
-      <main className="min-w-0 flex-1 overflow-x-hidden px-6 py-6 lg:px-10">{children}</main>
+      <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 lg:px-10 lg:py-6">{children}</main>
     </div>
   );
 }

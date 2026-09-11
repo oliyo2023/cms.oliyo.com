@@ -409,7 +409,7 @@ export default function SettingsClient() {
       </section>
 
       {/* 粘性操作栏：草稿跨标签页保留，未保存状态随时可见 */}
-      <div className="sticky bottom-0 -mx-6 flex flex-wrap items-center gap-3 border-t border-zinc-800 bg-zinc-950/95 px-6 py-4 backdrop-blur lg:-mx-10 lg:px-10">
+      <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center gap-3 border-t border-zinc-800 bg-zinc-950/95 px-4 py-3.5 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10 lg:py-4">
         <button
           className={cx(btnPrimary, hasDrafts && "ring-2 ring-indigo-500/40")}
           disabled={busy}

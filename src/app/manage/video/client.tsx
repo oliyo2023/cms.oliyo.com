@@ -190,7 +190,7 @@ export default function VideoClient({ recent, configured }: { recent: RecentVide
         <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-medium text-zinc-200">最近生成</h2>
-            <Link href="/manage/history" className="text-[11px] text-indigo-400 hover:underline">
+            <Link href="/manage/history" className="inline-flex min-h-6 items-center text-[11px] text-indigo-400 hover:underline">
               全部历史记录 →
             </Link>
           </div>

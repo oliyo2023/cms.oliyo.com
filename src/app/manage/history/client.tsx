@@ -115,7 +115,9 @@ export default function HistoryClient({ initialJson }: { initialJson: string }) 
                 </div>
                 {r.input && (
                   <details className="mt-2">
-                    <summary className="cursor-pointer text-xs text-zinc-500 hover:text-zinc-300">查看输入</summary>
+                    <summary className="inline-flex min-h-6 cursor-pointer items-center text-xs text-zinc-500 hover:text-zinc-300">
+                      查看输入
+                    </summary>
                     <p className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-zinc-950/60 p-3 text-xs text-zinc-400">
                       {r.input}
                     </p>
@@ -129,7 +131,7 @@ export default function HistoryClient({ initialJson }: { initialJson: string }) 
                     href={url.startsWith("http") ? url : `/media/${url.slice(5)}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-2 inline-block break-all text-xs text-indigo-400 hover:underline"
+                    className="mt-1 inline-flex min-h-6 items-center break-all text-xs text-indigo-400 hover:underline"
                   >
                     查看生成结果 ↗
                   </a>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileText, Pencil, Send, Trash2 } from "lucide-react";
+import { cx } from "@/components/ui";
 
 type Status = "draft" | "published";
 
@@ -76,17 +77,23 @@ export default function ArticlesClient({
     <div className="space-y-4">
       {tip && <p className="text-sm text-emerald-400">{tip}</p>}
       {isAdmin && (
-        <div className="flex gap-2 text-sm">
+        <div className="flex items-center gap-2 text-sm">
           <Link
             href="/manage/articles"
-            className={showAll ? "text-zinc-500 hover:text-zinc-300" : "font-medium text-indigo-400"}
+            className={cx(
+              "inline-flex min-h-6 items-center",
+              showAll ? "text-zinc-500 hover:text-zinc-300" : "font-medium text-indigo-400",
+            )}
           >
             我的文章
           </Link>
           <span className="text-zinc-500">/</span>
           <Link
             href="/manage/articles?all=1"
-            className={showAll ? "font-medium text-indigo-400" : "text-zinc-500 hover:text-zinc-300"}
+            className={cx(
+              "inline-flex min-h-6 items-center",
+              showAll ? "font-medium text-indigo-400" : "text-zinc-500 hover:text-zinc-300",
+            )}
           >
             全部文章
           </Link>
@@ -103,7 +110,10 @@ export default function ArticlesClient({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <FileText className="h-4 w-4 shrink-0 text-indigo-400" />
-                  <Link href={`/manage/articles/${a.id}`} className="truncate text-sm font-medium text-zinc-100 hover:text-indigo-300">
+                  <Link
+                    href={`/manage/articles/${a.id}`}
+                    className="block min-h-6 min-w-0 truncate text-sm font-medium leading-6 text-zinc-100 hover:text-indigo-300"
+                  >
                     {a.title || "(无标题)"}
                   </Link>
                   <span
