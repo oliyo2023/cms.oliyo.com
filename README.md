@@ -19,7 +19,7 @@ AI 内容创作与作品展示平台：AI 生成图文、智能洗稿、公众�
 **管理端（仅 admin）**
 
 - 用户与配额：按用户管理四类配额（文本 / 洗稿 / 图片 / 视频），用量进度条，配额弹窗
-- AI 服务设置：模型凭据与参数，密钥仅管理员可改，保存即时生效
+- 系统设置：模型凭据与参数 + 账户安全（修改密码），密钥仅管理员可改，保存即时生效
 - 第三方登录配置：GitHub / Google OAuth 全部后台可配（含密钥，读取脱敏）
 
 **认证**
@@ -53,7 +53,7 @@ pnpm typecheck
 | 用途 | 变量 | 说明 |
 | --- | --- | --- |
 | AI 模型 | `AGNES_API_KEY`、`LLM_*`、`IMAGE_*`、`VIDEO_*` | 共享 Key + 分模型覆盖，见 `.dev.vars.example` |
-| 第三方登录 | `SITE_URL`、`OAUTH_STATE_SECRET`、`GITHUB_CLIENT_ID/SECRET`、`GOOGLE_CLIENT_ID/SECRET` | 全部可在后台「AI 服务设置 → 第三方登录」配置 |
+| 第三方登录 | `SITE_URL`、`OAUTH_STATE_SECRET`、`GITHUB_CLIENT_ID/SECRET`、`GOOGLE_CLIENT_ID/SECRET` | 全部可在后台「系统设置 → 第三方登录」配置 |
 | 注册 | `REGISTRATION_OPEN`、`NEW_USER_*_QUOTA` | 注册开关与新用户默认配额 |
 | 种子管理员 | `ADMIN_EMAIL`、`ADMIN_PASSWORD` | 仅 `pnpm seed` 使用 |
 
@@ -62,7 +62,7 @@ pnpm typecheck
 1. GitHub：<https://github.com/settings/developers> 建 OAuth App，回调 `https://<域名>/api/auth/github/callback`
 2. Google：<https://console.cloud.google.com/apis/credentials> 建 OAuth Client（Web），
    回调 `https://<域名>/api/auth/google/callback`，scope 仅 `openid email profile`
-3. 把 Client ID / Secret 填入后台「AI 服务设置 → 第三方登录」（或用 `wrangler secret put`），
+3. 把 Client ID / Secret 填入后台「系统设置 → 第三方登录」（或用 `wrangler secret put`），
    生成一个 ≥32 位随机串填入「State 签名密钥」，`SITE_URL` 填生产域名
 
 安全设计：state 经 HMAC 签名且绑定 provider；Google 走 PKCE；只信任 provider 侧已验证邮箱

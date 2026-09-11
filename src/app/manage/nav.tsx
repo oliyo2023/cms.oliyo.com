@@ -23,7 +23,7 @@ import ThemeToggle from "./theme-toggle";
 
 const ADMIN_ITEMS = [
   { href: "/manage/users", label: "用户与配额", icon: Users },
-  { href: "/manage/settings", label: "AI 服务设置", icon: Settings },
+  { href: "/manage/settings", label: "系统设置", icon: Settings },
 ];
 
 export default function Nav({ user }: { user: User }) {
