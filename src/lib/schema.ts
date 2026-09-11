@@ -128,7 +128,7 @@ export const history = sqliteTable(
     id: text("id").primaryKey(),
     ownerId: text("owner_id").notNull(),
     kind: text("kind", {
-      enum: ["article_gen", "rewrite", "image_gen", "video_gen", "drama_gen", "manual"],
+      enum: ["article_gen", "rewrite", "image_gen", "video_gen", "drama_gen", "article_format", "manual"],
     }).notNull(),
     title: text("title").notNull().default(""),
     model: text("model").notNull().default(""),

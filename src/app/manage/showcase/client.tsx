@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Film, Pencil, Plus, Sparkles, Trash2, Upload } from "lucide-react";
 import { btnGhost, btnPrimary, cx, inputCls } from "@/components/ui";
 import Modal from "@/components/modal";
+import MediaPicker from "@/components/media-picker";
 
 type Category = "gallery" | "video" | "episode";
 
@@ -31,8 +32,6 @@ type Series = {
   createdAt: number;
 };
 
-type MediaRow = { id: string; key: string; name: string; kind: string };
-
 const refToUrl = (ref: string) => (ref.startsWith("r2://") ? `/media/${ref.slice(5)}` : ref);
 const fmtDate = (t: number) => new Date(t).toLocaleString("zh-CN", { dateStyle: "short", timeStyle: "short" });
 
@@ -49,54 +48,6 @@ function useTip(): [string | null, (msg: string) => void] {
     window.setTimeout(() => setTip(null), 2600);
   }, []);
   return [tip, notify];
-}
-
-function MediaPicker({
-  kind,
-  onPick,
-  onClose,
-}: {
-  kind: "image" | "video";
-  onPick: (ref: string) => void;
-  onClose: () => void;
-}) {
-  const [rows, setRows] = useState<MediaRow[] | null>(null);
-  useEffect(() => {
-    fetch(`/api/media?kind=${kind}`)
-      .then((r) => r.json())
-      .then((d: { media?: MediaRow[] }) => {
-        const m = d.media;
-        setRows(Array.isArray(m) ? m : []);
-      })
-      .catch(() => setRows([]));
-  }, [kind]);
-
-  return (
-    <Modal title={`从素材库选择${kind === "image" ? "图片" : "视频"}`} onClose={onClose}>
-      {rows === null && <p className="text-sm text-zinc-500">加载中…</p>}
-      {rows && rows.length === 0 && <p className="text-sm text-zinc-500">素材库为空，请先到「素材库」上传。</p>}
-      <div className="grid grid-cols-3 gap-2">
-        {rows?.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => onPick(`r2://${m.key}`)}
-            className="group overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 text-left transition hover:border-indigo-600"
-            title={m.name}
-          >
-            {m.kind === "image" ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={`/media/${m.key}`} alt={m.name} className="h-20 w-full object-cover" />
-            ) : (
-              <div className="flex h-20 items-center justify-center bg-black">
-                <Film className="h-6 w-6 text-zinc-600" />
-              </div>
-            )}
-            <div className="truncate px-1.5 py-1 text-[10px] text-zinc-500 group-hover:text-zinc-300">{m.name}</div>
-          </button>
-        ))}
-      </div>
-    </Modal>
-  );
 }
 
 /** 新建/编辑展示条目（画廊图 / 视频 / 剧集单集共用） */

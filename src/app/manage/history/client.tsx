@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Clapperboard, FileIcon, Film, Image as ImageIcon, Repeat2, Sparkles, Trash2 } from "lucide-react";
 
-type Kind = "article_gen" | "rewrite" | "image_gen" | "video_gen" | "drama_gen" | "manual";
+type Kind = "article_gen" | "rewrite" | "image_gen" | "video_gen" | "drama_gen" | "article_format" | "manual";
 
 type HistoryRow = {
   id: string;
@@ -24,6 +24,7 @@ const KIND_META: Record<Kind, { label: string; icon: typeof Sparkles }> = {
   image_gen: { label: "图片生成", icon: ImageIcon },
   video_gen: { label: "视频生成", icon: Film },
   drama_gen: { label: "短剧生成", icon: Clapperboard },
+  article_format: { label: "智能排版", icon: Sparkles },
   manual: { label: "手动", icon: FileIcon },
 };
 

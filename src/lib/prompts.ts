@@ -83,6 +83,61 @@ export function buildImagePrompt(articleText: string, style?: string): string {
   ].join("\n");
 }
 
+// ---------- 智能排版（正文 → 结构化排版块） ----------
+
+export type FormatBlockType = "title" | "p" | "quote" | "divider";
+export type FormatBlock = { type: FormatBlockType; text: string };
+
+export function buildFormatMessages(text: string): ChatMessage[] {
+  const system =
+    "你是公众号排版师。把用户给出的文章重组为结构化排版块，输出严格的 JSON 数组，不要输出任何解释或代码围栏。" +
+    '每块形如 {"type":"title|p|quote|divider","text":"..."}：' +
+    "title=小节标题（每个逻辑小节一个）；p=正文段落（保留原文语义，仅可拆分合并段落、顺句，不得删减或扩写内容）；" +
+    "quote=金句或要点摘录（全文 1-3 处）；divider=分隔线（小节之间，全文 2-4 处）。" +
+    "第一块应是 p（导语）而不是 title。text 一律为纯文本，不含 Markdown 符号。";
+  return [
+    { role: "system", content: system },
+    { role: "user", content: text.slice(0, 12000) },
+  ];
+}
+
+const FORMAT_TYPES: ReadonlyArray<FormatBlockType> = ["title", "p", "quote", "divider"];
+
+/** 解析模型输出的排版块 JSON（容忍围栏与前后缀文字），逐块校验与截断。 */
+export function parseFormatBlocks(raw: string): FormatBlock[] {
+  let text = raw.trim();
+  const tryParse = (s: string): unknown => {
+    try {
+      return JSON.parse(s) as unknown;
+    } catch {
+      return null;
+    }
+  };
+  let parsed: unknown = tryParse(text);
+  if (parsed === null && text.includes("```")) {
+    const m = text.match(/```[a-zA-Z]*\n?([\s\S]*?)```/);
+    if (m) parsed = tryParse(m[1].trim());
+  }
+  if (parsed === null) {
+    const start = text.indexOf("[");
+    const end = text.lastIndexOf("]");
+    if (start !== -1 && end > start) parsed = tryParse(text.slice(start, end + 1));
+  }
+  if (!Array.isArray(parsed)) throw new Error("排版结果解析失败，请重试");
+  const blocks: FormatBlock[] = [];
+  for (const item of parsed.slice(0, 120)) {
+    if (item === null || typeof item !== "object") continue;
+    const rec = item as Record<string, unknown>;
+    const type = rec.type;
+    if (typeof type !== "string" || !FORMAT_TYPES.includes(type as FormatBlockType)) continue;
+    const text2 = typeof rec.text === "string" ? rec.text.trim().slice(0, 2000) : "";
+    if (type !== "divider" && !text2) continue;
+    blocks.push({ type: type as FormatBlockType, text: text2 });
+  }
+  if (blocks.length === 0) throw new Error("排版结果解析失败，请重试");
+  return blocks;
+}
+
 // ---------- 短剧自动生成 ----------
 
 export type DramaGenre = "反转爽剧" | "悬疑" | "甜宠" | "职场" | "家庭" | "科幻" | "年代";
@@ -175,4 +230,48 @@ function normalizeDramaPlan(obj: Record<string, unknown>): DramaPlan {
     logline: typeof obj.logline === "string" ? obj.logline.trim() : "",
     episodes: eps,
   };
+}
+
+// ---------- 主题关键词候选（AI 图文） ----------
+
+export const KEYWORD_COUNT = 8;
+
+export function buildKeywordMessages(opts: { seed?: string; tone: Tone; audience: Audience }): ChatMessage[] {
+  const system =
+    "你是资深中文新媒体选题策划。只输出 JSON 字符串数组，无任何解释、编号或 markdown 代码块标记。" +
+    `给出 ${KEYWORD_COUNT} 个可直接作为图文的「主题 / 关键词」候选：每个 6-18 字，彼此角度不重复，` +
+    "具体到能直接开写（不要「关于 AI 的思考」这类空泛表述）。";
+  const user = [
+    opts.seed?.trim() ? `在以下方向上拓展：${opts.seed.trim()}` : "方向不限：给当下值得写、读者真正关心的选题。",
+    `文风：${opts.tone}`,
+    `目标读者：${opts.audience}`,
+    '输出示例：["创作者如何用 AI 省下每天两小时", "被算法投喂三年后我重新学会了阅读"]',
+  ].join("\n");
+  return [
+    { role: "system", content: system },
+    { role: "user", content: user },
+  ];
+}
+
+/** 宽松解析：优先取 JSON 数组，失败则按行拆分（清掉编号/引号/项目符号）。 */
+export function parseKeywords(raw: string): string[] {
+  const text = raw.trim();
+  const start = text.indexOf("[");
+  const end = text.lastIndexOf("]");
+  if (start !== -1 && end > start) {
+    try {
+      const arr: unknown = JSON.parse(text.slice(start, end + 1));
+      if (Array.isArray(arr)) {
+        const out = arr.map((v) => String(v ?? "").trim()).filter(Boolean);
+        if (out.length) return out.slice(0, KEYWORD_COUNT * 2);
+      }
+    } catch {
+      // 落到按行拆分
+    }
+  }
+  return text
+    .split("\n")
+    .map((line) => line.replace(/^\s*(?:[-*•]|\d+[.、)）])\s*/, "").replace(/^["'“”「『]|["'“”」』]$/g, "").trim())
+    .filter(Boolean)
+    .slice(0, KEYWORD_COUNT * 2);
 }

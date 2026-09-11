@@ -14,9 +14,11 @@ import {
   Italic,
   ListOrdered,
   List,
+  Loader2,
   Minus,
   Quote,
   Save,
+  Sparkles,
   Square,
   Strikethrough,
   Type,
@@ -24,7 +26,10 @@ import {
   Undo2,
 } from "lucide-react";
 import { btnGhost, btnPrimary, cx, inputCls } from "@/components/ui";
+import Modal from "@/components/modal";
+import MediaPicker from "@/components/media-picker";
 import { htmlToText } from "@/lib/md";
+import type { FormatBlock } from "@/lib/prompts";
 import {
   accentOf,
   wxCard,
@@ -215,7 +220,12 @@ export default function Editor({ articleJson }: { articleJson: string }) {
   const [notice, setNotice] = useState<string | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const [charCount, setCharCount] = useState(0);
-
+  const [formatOpen, setFormatOpen] = useState(false);
+  const [formatBusy, setFormatBusy] = useState(false);
+  const [formatStyle, setFormatStyle] = useState<TitleStyleId>("bar");
+  const [imgModal, setImgModal] = useState<null | { target: "body" | "cover" }>(null);
+  const savedRangeRef = useRef<Range | null>(null);
+  const savedCaptionRef = useRef("");
   const accent = accentOf(accentId);
   const flash = (msg: string, ok = true) => {
     setNotice(msg);
@@ -308,17 +318,76 @@ export default function Editor({ articleJson }: { articleJson: string }) {
     onChange();
   }
 
-  function insertImg() {
-    const url = window.prompt("图片 URL（https:// 或以 /media/ 开头的站内地址）");
-    if (!url) return;
-    const src = /^https?:\/\//.test(url) || url.startsWith("/media/") ? url : "";
-    if (!src) {
-      flash("请输入有效图片地址", false);
+  function openImageModal(target: "body" | "cover") {
+    const el = editorRef.current;
+    const sel = window.getSelection();
+    const inEditor = Boolean(el && sel?.anchorNode && el.contains(sel.anchorNode));
+    savedRangeRef.current = target === "body" && inEditor && sel ? sel.getRangeAt(0).cloneRange() : null;
+    savedCaptionRef.current = target === "body" ? selectedText() : "";
+    setImgModal({ target });
+  }
+
+  /** 弹窗夺焦会丢选区：插入前恢复保存的光标，无选区则落到正文末尾。 */
+  function insertAtSavedRange(html: string) {
+    const el = editorRef.current;
+    if (!el) return;
+    el.focus();
+    const sel = window.getSelection();
+    const range = savedRangeRef.current ?? (() => {
+      const r = document.createRange();
+      r.selectNodeContents(el);
+      r.collapse(false);
+      return r;
+    })();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+    insertHtml(html);
+    savedRangeRef.current = null;
+    savedCaptionRef.current = "";
+    onChange();
+  }
+
+  /** 智能排版：正文 → AI 结构化 → wx* 模板渲染替换。 */
+  async function applyFormat() {
+    const el = editorRef.current;
+    if (!el) return;
+    const text = el.innerText.trim();
+    if (text.length < 50) {
+      flash("正文太短（至少 50 字）再排版", false);
+      setFormatOpen(false);
       return;
     }
-    const caption = selectedText();
-    insertHtml(wxImageUrl(src, caption));
-    onChange();
+    setFormatBusy(true);
+    try {
+      const res = await fetch("/api/ai/article-format", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = (await res.json()) as { blocks?: FormatBlock[]; error?: string };
+      if (!res.ok || !data.blocks) {
+        flash(data.error ?? "排版失败", false);
+        return;
+      }
+      el.innerHTML = data.blocks
+        .map((b) =>
+          b.type === "title"
+            ? wxTitle(b.text, accent, formatStyle)
+            : b.type === "quote"
+              ? wxQuote(b.text, accent)
+              : b.type === "divider"
+                ? wxDivider(accent, "gradient")
+                : wxParagraph(b.text),
+        )
+        .join("");
+      onChange();
+      setFormatOpen(false);
+      flash("智能排版完成");
+    } catch {
+      flash("网络错误，排版失败", false);
+    } finally {
+      setFormatBusy(false);
+    }
   }
 
   function insertImgPlaceholder() {
@@ -390,6 +459,10 @@ export default function Editor({ articleJson }: { articleJson: string }) {
             <Undo2 className="h-3.5 w-3.5" />
             返回列表
           </Link>
+          <button className={cx(btnGhost, "text-xs")} disabled={formatBusy} onClick={() => setFormatOpen(true)}>
+            {formatBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            智能排版
+          </button>
           <button className={cx(btnGhost, "text-xs")} disabled={busy} onClick={() => void save(false)}>
             <Save className="h-3.5 w-3.5" />
             保存草稿
@@ -398,7 +471,7 @@ export default function Editor({ articleJson }: { articleJson: string }) {
             {status === "draft" ? "保存并发布" : "更新发布"}
           </button>
           <button
-            className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-100 px-3.5 py-2 text-xs font-medium text-zinc-900 transition hover:bg-white"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-100 px-3.5 py-2 text-xs font-medium text-zinc-900 transition hover:bg-zinc-50"
             onClick={() => void copyToWechat()}
           >
             <ClipboardCopy className="h-3.5 w-3.5" />
@@ -423,17 +496,27 @@ export default function Editor({ articleJson }: { articleJson: string }) {
             onChange={(e) => setTitle(e.target.value)}
           />
           <input
-            className={cx(inputCls, "border-transparent bg-transparent px-0 text-sm text-zinc-500 placeholder-zinc-700")}
+            className={cx(inputCls, "border-transparent bg-transparent px-0 text-sm text-zinc-500 placeholder-zinc-600")}
             placeholder="摘要（公开站展示用，可留空）"
             value={summary}
             onChange={(e) => setSummary(e.target.value)}
           />
-          <input
-            className={cx(inputCls, "border-transparent bg-transparent px-0 text-sm text-zinc-500 placeholder-zinc-700")}
-            placeholder="封面图 URL（可选，https://… 或 /media/…）"
-            value={cover}
-            onChange={(e) => setCover(e.target.value)}
-          />
+          <div className="flex items-center gap-2">
+            <input
+              className={cx(inputCls, "border-transparent bg-transparent px-0 text-sm text-zinc-500 placeholder-zinc-600")}
+              placeholder="封面图 URL（可选，https://… 或 /media/…）"
+              value={cover}
+              onChange={(e) => setCover(e.target.value)}
+            />
+            <button
+              type="button"
+              className={cx(btnGhost, "shrink-0 px-2.5 py-1.5 text-xs")}
+              onClick={() => openImageModal("cover")}
+            >
+              <ImageIcon className="h-3.5 w-3.5" />
+              选图
+            </button>
+          </div>
 
           {/* 工具栏：文本样式 */}
           <div className="flex flex-wrap items-center gap-0.5 rounded-xl border border-zinc-800 bg-zinc-900/60 px-2 py-1.5">
@@ -447,7 +530,7 @@ export default function Editor({ articleJson }: { articleJson: string }) {
                 key={c.id}
                 title={c.name}
                 onClick={() => colorText(c.color)}
-                className={cx("h-5 w-5 rounded-full border transition", accentId === c.id ? "border-white ring-1 ring-white/30" : "border-transparent")}
+                className={cx("h-5 w-5 rounded-full border transition", accentId === c.id ? "border-zinc-50 ring-1 ring-zinc-50/40" : "border-transparent")}
                 style={{ background: c.color }}
               />
             ))}
@@ -467,7 +550,7 @@ export default function Editor({ articleJson }: { articleJson: string }) {
               contentEditable
               suppressContentEditableWarning
               onInput={onChange}
-              className="wx-editor min-h-[480px] w-full max-w-[520px] rounded-xl bg-white px-6 py-8 text-[15px] leading-7 text-zinc-800 shadow-xl outline-none focus:ring-2 focus:ring-indigo-500/60"
+              className="wx-editor min-h-[480px] w-full max-w-[520px] rounded-xl bg-white px-6 py-8 text-[15px] leading-7 text-neutral-800 shadow-xl outline-none focus:ring-2 focus:ring-indigo-500/60"
             />
           </div>
           <p className="text-right text-xs text-zinc-600">正文约 {charCount} 字</p>
@@ -509,7 +592,7 @@ export default function Editor({ articleJson }: { articleJson: string }) {
               <BlockBtn onClick={() => insertDivider("line")} icon={<Minus className="h-3.5 w-3.5" />} label="实线" />
               <BlockBtn onClick={() => insertDivider("dot")} icon={<Minus className="h-3.5 w-3.5" />} label="星点" />
               <BlockBtn onClick={insertCode} icon={<Code2 className="h-3.5 w-3.5" />} label="代码块" />
-              <BlockBtn onClick={insertImg} icon={<ImageIcon className="h-3.5 w-3.5" />} label="插入图片" />
+              <BlockBtn onClick={() => openImageModal("body")} icon={<ImageIcon className="h-3.5 w-3.5" />} label="插入图片" />
               <BlockBtn onClick={insertImgPlaceholder} icon={<ImageIcon className="h-3.5 w-3.5" />} label="图片占位" />
               <BlockBtn onClick={() => run("insertUnorderedList")} icon={<List className="h-3.5 w-3.5" />} label="列表" />
               <BlockBtn onClick={() => run("insertOrderedList")} icon={<ListOrdered className="h-3.5 w-3.5" />} label="编号列表" />
@@ -524,7 +607,7 @@ export default function Editor({ articleJson }: { articleJson: string }) {
                   key={c.id}
                   title={c.name}
                   onClick={() => setAccentId(c.id)}
-                  className={cx("h-7 w-7 rounded-lg transition", accentId === c.id ? "ring-2 ring-white/50" : "opacity-70 hover:opacity-100")}
+                  className={cx("h-7 w-7 rounded-lg transition", accentId === c.id ? "ring-2 ring-zinc-50/60" : "opacity-70 hover:opacity-100")}
                   style={{ background: c.color }}
                 />
               ))}
@@ -535,8 +618,72 @@ export default function Editor({ articleJson }: { articleJson: string }) {
           </div>
         </aside>
       </div>
-    </div>
-  );
+
+      {formatOpen && (
+        <Modal title="智能排版" onClose={() => (formatBusy ? undefined : setFormatOpen(false))}>
+          <div className="space-y-4">
+            <p className="text-sm leading-6 text-zinc-400">
+              AI 将重排整篇正文：划分小节、生成小标题、摘录金句、插入分隔线；语义保留，只调结构。
+              排版会用当前主题色，并<b className="text-zinc-200">替换现有正文</b>。
+            </p>
+            <div>
+              <p className="mb-1.5 text-sm text-zinc-300">标题样式</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {(
+                  [
+                    { id: "bar", label: "左竖线" },
+                    { id: "center", label: "居中下划线" },
+                    { id: "round", label: "圆底" },
+                    { id: "num", label: "序号块" },
+                  ] as Array<{ id: TitleStyleId; label: string }>
+                ).map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    aria-pressed={formatStyle === s.id}
+                    onClick={() => setFormatStyle(s.id)}
+                    className={cx(
+                      "rounded-lg border px-2 py-2 text-xs transition",
+                      formatStyle === s.id
+                        ? "border-indigo-500 bg-indigo-600/10 text-indigo-300"
+                        : "border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200",
+                    )}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="text-xs text-zinc-500">当前正文约 {charCount} 字（至少 50 字）。消耗文本生成配额。</p>
+            <div className="flex justify-end gap-2">
+              <button className={btnGhost} onClick={() => setFormatOpen(false)}>
+                取消
+              </button>
+              <button className={btnPrimary} disabled={formatBusy} onClick={() => void applyFormat()}>
+                {formatBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Sparkles className="h-4 w-4" aria-hidden="true" />}
+                {formatBusy ? "排版中…" : "开始排版"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {imgModal && (
+        <ImageInsertModal
+          onInsert={(src) => {
+            if (imgModal.target === "cover") {
+              setCover(src);
+              flash("封面已更新");
+            } else {
+              insertAtSavedRange(wxImageUrl(src, savedCaptionRef.current));
+            }
+            setImgModal(null);
+          }}
+          onClose={() => setImgModal(null)}
+        />
+      )}
+     </div>
+   );
 }
 
 function BlockBtn({ onClick, icon, label }: { onClick: () => void; icon: React.ReactNode; label: string }) {
@@ -554,4 +701,161 @@ function BlockBtn({ onClick, icon, label }: { onClick: () => void; icon: React.R
 function wxImageUrl(src: string, caption?: string): string {
   const escCap = (caption ?? "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   return `<figure style="margin:14px 0;"><img src="${src}" style="width:100%;border-radius:8px;display:block;" alt="${escCap}"/><figcaption style="text-align:center;font-size:13px;color:#a1a1aa;margin-top:6px;">${escCap}</figcaption></figure>`;
+}
+
+/** 插图弹窗：AI 生成 / 素材库 / 外链，三条路都汇成 URL 插入。 */
+function ImageInsertModal({
+  onInsert,
+  onClose,
+}: {
+  onInsert: (src: string) => void;
+  onClose: () => void;
+}) {
+  const [tab, setTab] = useState<"ai" | "library" | "url">("ai");
+  const [prompt, setPrompt] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [preview, setPreview] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [url, setUrl] = useState("");
+
+  async function generate() {
+    const desc = prompt.trim();
+    if (!desc) {
+      setError("请先描述画面");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/ai/image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: desc, note: `文章配图：${desc.slice(0, 40)}` }),
+      });
+      const data = (await res.json()) as { image?: { url?: string }; error?: string };
+      if (!res.ok || !data.image?.url) {
+        setError(data.error ?? "生成失败，请重试");
+        return;
+      }
+      setPreview(data.image.url);
+    } catch {
+      setError("网络错误，请重试");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function insertExternal() {
+    const src = url.trim();
+    if (!/^https?:\/\//.test(src) && !src.startsWith("/media/")) {
+      setError("请输入有效图片地址（https:// 或 /media/…）");
+      return;
+    }
+    onInsert(src);
+  }
+
+  const tabBtn = (id: "ai" | "library" | "url", label: string) => (
+    <button
+      key={id}
+      type="button"
+      aria-pressed={tab === id}
+      onClick={() => {
+        setTab(id);
+        setError("");
+      }}
+      className={cx(
+        "flex-1 rounded-lg px-3 py-1.5 text-xs transition",
+        tab === id ? "bg-indigo-600/15 font-medium text-indigo-300" : "text-zinc-400 hover:text-zinc-200",
+      )}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <Modal title="插入图片" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="flex gap-1 rounded-lg bg-zinc-950/70 p-1">{[tabBtn("ai", "AI 生成"), tabBtn("library", "素材库"), tabBtn("url", "外链")]}</div>
+
+        {tab === "ai" && (
+          <div className="space-y-3">
+            <div>
+              <label htmlFor="ai-img-prompt" className="mb-1.5 block text-sm text-zinc-300">
+                画面描述
+              </label>
+              <textarea
+                id="ai-img-prompt"
+                className={cx(inputCls, "h-20 resize-none")}
+                placeholder="例如：公众号封面配图，城市夜景延时摄影，霓虹光斑，扁平插画风"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+              />
+              <p className="mt-1.5 text-xs text-zinc-500">生成结果自动存入素材库，消耗图片生成配额。</p>
+            </div>
+            {preview && (
+              <div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={preview} alt="生成预览" className="max-h-56 w-full rounded-lg bg-black object-contain" />
+              </div>
+            )}
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            <div className="flex justify-end gap-2">
+              <button className={btnGhost} disabled={busy} onClick={() => void generate()}>
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Sparkles className="h-4 w-4" aria-hidden="true" />}
+                {busy ? "生成中…" : "生成"}
+              </button>
+              <button className={btnPrimary} disabled={busy || !preview} onClick={() => preview && onInsert(preview)}>
+                插入
+              </button>
+            </div>
+          </div>
+        )}
+
+        {tab === "library" && (
+          <div className="space-y-3">
+            <p className="text-sm text-zinc-400">选择素材库中已上传 / 已生成的图片。</p>
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            <div className="flex justify-end">
+              <button className={btnPrimary} onClick={() => setPicking(true)}>
+                <ImageIcon className="h-4 w-4" aria-hidden="true" />
+                浏览素材库
+              </button>
+            </div>
+          </div>
+        )}
+
+        {tab === "url" && (
+          <div className="space-y-3">
+            <div>
+              <label htmlFor="img-url" className="mb-1.5 block text-sm text-zinc-300">
+                图片地址
+              </label>
+              <input
+                id="img-url"
+                className={inputCls}
+                placeholder="https://… 或 /media/…"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+              />
+            </div>
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            <div className="flex justify-end">
+              <button className={btnPrimary} onClick={insertExternal}>
+                插入
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {picking && (
+        <MediaPicker
+          kind="image"
+          onPick={(ref) => onInsert(ref.startsWith("r2://") ? `/media/${ref.slice(5)}` : ref)}
+          onClose={() => setPicking(false)}
+        />
+      )}
+    </Modal>
+  );
 }
