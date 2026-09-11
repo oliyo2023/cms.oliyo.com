@@ -1,0 +1,16 @@
+node_modules/
+.next/
+.open-next/
+.wrangler/
+.claude/
+dev-data/
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
+.env
+.env*.local
+drizzle/meta/
+# keep generated migration SQL but not drizzle bookkeeping
+.commandcode/
+
+.dev.vars

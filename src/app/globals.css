@@ -1,0 +1,293 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: #09090b;
+  color: #e4e4e7;
+}
+
+::selection {
+  background: rgba(99, 102, 241, 0.4);
+}
+
+/* thin scrollbars for content panes */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 transparent;
+}
+
+/* ---------------------------------------------------------------------------
+   Login ambient layer
+   Pure-CSS, server-rendered. Long-running ambient loops live here (cheap, runs
+   off the main thread) instead of in JS. Radials are used rather than
+   `filter: blur()` on large boxes so there is no per-frame filter cost.
+   All three are switched off under prefers-reduced-motion below.
+--------------------------------------------------------------------------- */
+
+.aurora {
+  position: absolute;
+  border-radius: 9999px;
+}
+
+.aurora-1 {
+  background: radial-gradient(circle, rgba(79, 70, 229, 0.4), rgba(79, 70, 229, 0.1) 40%, transparent 70%);
+}
+
+.aurora-2 {
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.32), rgba(124, 58, 237, 0.08) 40%, transparent 70%);
+}
+
+.aurora-3 {
+  background: radial-gradient(circle, rgba(192, 38, 211, 0.2), rgba(192, 38, 211, 0.05) 40%, transparent 70%);
+}
+
+@keyframes aurora-a {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(4%, 6%, 0) scale(1.12);
+  }
+}
+
+@keyframes aurora-b {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.08);
+  }
+  50% {
+    transform: translate3d(-5%, -4%, 0) scale(1);
+  }
+}
+
+@keyframes halo {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.08);
+  }
+}
+
+.anim-aurora-a {
+  animation: aurora-a 26s ease-in-out infinite;
+}
+
+.anim-aurora-b {
+  animation: aurora-b 34s ease-in-out infinite;
+}
+
+.anim-halo {
+  animation: halo 4.5s ease-in-out infinite;
+}
+
+/* Faint blueprint grid, faded out with a radial mask so it never competes with content */
+.bg-grid-faint {
+  background-image: linear-gradient(to right, rgba(82, 82, 91, 0.22) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(82, 82, 91, 0.22) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 65% at 32% 32%, #000 28%, transparent 74%);
+  mask-image: radial-gradient(ellipse 80% 65% at 32% 32%, #000 28%, transparent 74%);
+}
+
+/* 首页分类锚点：仅在用户未要求减少动效时启用平滑滚动 */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Homepage hero
+   The hero is a video wall: our library has no still images (every cover and
+   showcase asset is an .mp4), so the mosaic is built from muted looping video.
+   Two decorative layers get parallax; the headline never moves.
+--------------------------------------------------------------------------- */
+
+/* Sticky header height — keeps anchor jumps and keyboard focus clear of the bar */
+html {
+  scroll-padding-top: 5rem;
+}
+
+.parallax-layer {
+  will-change: transform;
+}
+
+.mosaic-grid {
+  position: absolute;
+  inset: -6%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+}
+
+/* 桌面端按瓦片数量等分一整行；移动端保持 2 列自动换行 */
+@media (min-width: 768px) {
+  .mosaic-grid {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-template-columns: none;
+    grid-template-rows: 1fr;
+  }
+}
+
+.mosaic-tile {
+  position: relative;
+  overflow: hidden;
+  background: #0c0c0f;
+}
+
+.mosaic-tile > video {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+/* Fades the wall outward so the centre copy stays legible on top of footage */
+.mosaic-mask {
+  -webkit-mask-image: radial-gradient(ellipse 72% 68% at 50% 46%, #000 18%, transparent 76%);
+  mask-image: radial-gradient(ellipse 72% 68% at 50% 46%, #000 18%, transparent 76%);
+}
+
+/* Scroll-hint highlight: a short light travelling down a hairline. It signals
+   "there is more below" rather than decorating, and stops under reduced motion. */
+@keyframes scroll-hint {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(250%);
+    opacity: 0;
+  }
+}
+
+.anim-scroll-hint {
+  animation: scroll-hint 2.4s ease-in-out infinite;
+}
+
+/* ---------------------------------------------------------------------------
+   Featured works track
+   Vertical scroll drives horizontal travel. The fallbacks are pure CSS so they
+   apply before hydration — no layout jump. Base layout is a plain grid; the
+   track layout only exists at >=1024px, and reduced motion cancels it outright.
+--------------------------------------------------------------------------- */
+
+.works-track {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .works-track {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .works-section[data-mode="track"] {
+    height: var(--track-h);
+  }
+
+  .works-section[data-mode="track"] .works-sticky {
+    position: sticky;
+    top: 0;
+    display: flex;
+    height: 100dvh;
+    flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .works-section[data-mode="track"] .works-track {
+    display: flex;
+    gap: 1.5rem;
+    padding-inline: 6vw;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
+  }
+
+  .works-section[data-mode="track"] .works-item {
+    width: 44vw;
+    flex: 0 0 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-aurora-a,
+  .anim-aurora-b,
+  .anim-halo,
+  .anim-scroll-hint {
+    animation: none;
+  }
+
+  /* No scroll takeover at all: fall back to the plain grid */
+  .works-section[data-mode="track"] {
+    height: auto;
+  }
+
+  .works-section[data-mode="track"] .works-sticky {
+    position: static;
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+
+  .works-section[data-mode="track"] .works-track {
+    display: grid;
+    gap: 1rem;
+    padding-inline: 0;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .works-section[data-mode="track"] .works-item {
+    width: auto;
+  }
+}
+
+/* WeChat article typography inside .wx-content */
+.wx-content {
+  font-size: 16px;
+  line-height: 1.75;
+  color: #e4e4e7;
+  word-break: break-word;
+}
+.wx-content p {
+  margin: 0.6em 0;
+}
+.wx-content img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+.wx-content blockquote {
+  border-left: 3px solid #6366f1;
+  background: rgba(99, 102, 241, 0.08);
+  margin: 1em 0;
+  padding: 0.5em 1em;
+  border-radius: 0 8px 8px 0;
+}
+.wx-content pre {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  padding: 12px;
+  overflow-x: auto;
+}
+.wx-content code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+}

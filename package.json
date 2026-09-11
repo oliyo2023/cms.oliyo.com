@@ -1,0 +1,43 @@
+{
+  "name": "cms-oliyo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "predev": "tsx scripts/migrate-dev.ts",
+    "build": "next build",
+    "start": "next start",
+    "seed": "tsx scripts/seed.ts",
+    "worker:build": "opennextjs-cloudflare build",
+    "worker:dev": "tsx scripts/migrate-dev.ts && opennextjs-cloudflare build && wrangler dev",
+    "deploy": "opennextjs-cloudflare build && wrangler deploy",
+    "db:generate": "drizzle-kit generate",
+    "db:remote": "wrangler d1 migrations apply oliyo-db --remote",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@opennextjs/cloudflare": "1.20.6",
+    "drizzle-orm": "0.45.2",
+    "lucide-react": "^1.43.0",
+    "motion": "^13.2.0",
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "tsx": "^4.23.13"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260908.1",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "drizzle-kit": "0.31.10",
+    "tailwindcss": "4.3.3",
+    "typescript": "^5.9.3",
+    "wrangler": "4.130.0"
+  }
+}

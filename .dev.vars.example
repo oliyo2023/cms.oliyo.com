@@ -1,0 +1,29 @@
+# Local dev secrets (wrangler dev / next dev) — copy to .dev.vars / .env.local and fill.
+# Production secrets go via `wrangler secret put <NAME>` (worker).
+# 三个模型共用一个 Agnes key 时，只需设置 AGNES_API_KEY；分模型 key 用 LLM_/IMAGE_/VIDEO_API_KEY 覆盖。
+
+AGNES_API_KEY=your-agnes-key
+
+# === 文本生成（OpenAI 兼容 Chat Completions）===
+LLM_BASE_URL=https://api.agnes-ai.cn/v1
+LLM_MODEL=agnes-3.0-flash
+
+# === 文生图（size 档位 1K/2K/3K/4K + ratio；格式经 extra_body.response_format）===
+IMAGE_BASE_URL=https://api.agnes-ai.cn/v1
+IMAGE_MODEL=agnes-image-2.5-flash
+IMAGE_SIZE=1K
+IMAGE_RATIO=1:1
+
+# === 视频生成（异步任务；Flash 固定 size=720P；查询端点经 VIDEO_POLL_URL 模板）===
+VIDEO_BASE_URL=https://api.agnes-ai.cn/v1
+VIDEO_MODEL=agnes-video-2.5-flash
+VIDEO_SIZE=720P
+VIDEO_ASPECT=16:9
+VIDEO_SECONDS=5
+VIDEO_POLL_URL=https://api.agnes-ai.cn/agnesapi?video_id={id}&model_name={model}
+
+# === 管理员种子账号（pnpm seed 首次建号）===
+ADMIN_EMAIL=admin@oliyo.com
+ADMIN_PASSWORD=change-me-please
+
+DEV_DATA_DIR=dev-data

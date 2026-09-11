@@ -1,0 +1,43 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "cms-oliyo",
+	"main": ".open-next/worker.js",
+	"compatibility_date": "2026-08-01",
+	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	"services": [
+		{
+			"binding": "WORKER_SELF_REFERENCE",
+			"service": "cms-oliyo"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "NEXT_INC_CACHE_R2_BUCKET",
+			"bucket_name": "cms-oliyo-opennext-cache"
+		},
+		{
+			"binding": "MEDIA",
+			"bucket_name": "cms-oliyo-media"
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "oliyo-db",
+			"database_id": "REPLACE_WITH_REAL_D1_DATABASE_ID",
+			"migrations_dir": "drizzle"
+		}
+	],
+	"vars": {
+		"REGISTRATION_OPEN": "true",
+		"SITE_NAME": "创作台",
+		"NEW_USER_TEXT_QUOTA": "100000",
+		"NEW_USER_IMAGE_QUOTA": "30",
+		"NEW_USER_VIDEO_QUOTA": "10",
+		"NEW_USER_REWRITE_QUOTA": "200000"
+	}
+}
