@@ -83,7 +83,7 @@ export default function ArticlesClient({
           >
             我的文章
           </Link>
-          <span className="text-zinc-700">/</span>
+          <span className="text-zinc-500">/</span>
           <Link
             href="/manage/articles?all=1"
             className={showAll ? "font-medium text-indigo-400" : "text-zinc-500 hover:text-zinc-300"}

@@ -14,7 +14,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN">
+    // suppressHydrationWarning：后台在 hydration 前用引导脚本设置 <html data-admin-theme>（防主题闪烁），
+    // 该属性是客户端先行写入的合法差异，不需要 React 参与比对。
+    <html lang="zh-CN" suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );

@@ -224,7 +224,7 @@ export default function MediaClient({ initialJson, kind }: { initialJson: string
 
       {visible.length === 0 ? (
         <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/30 px-6 py-16 text-center">
-          <ImageIcon className="mx-auto h-10 w-10 text-zinc-700" />
+          <ImageIcon className="mx-auto h-10 w-10 text-zinc-500" />
           <p className="mt-4 text-sm text-zinc-400">
             {items.length === 0
               ? "还没有素材，点击右上角「上传文件」上传图片或视频。"

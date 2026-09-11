@@ -15,9 +15,11 @@ import {
   Settings,
   Sparkles,
   Users,
+  Video,
 } from "lucide-react";
 import { cx } from "@/components/ui";
 import type { User } from "@/lib/schema";
+import ThemeToggle from "./theme-toggle";
 
 const ADMIN_ITEMS = [
   { href: "/manage/users", label: "用户与配额", icon: Users },
@@ -32,6 +34,7 @@ export default function Nav({ user }: { user: User }) {
     { href: "/manage", label: "总览", icon: LayoutDashboard },
     { href: "/manage/generate", label: "AI 图文", icon: Sparkles },
     { href: "/manage/drama", label: "短剧生成", icon: Clapperboard },
+    { href: "/manage/video", label: "AI 视频", icon: Video },
     { href: "/manage/rewrite", label: "智能洗稿", icon: Repeat2 },
     { href: "/manage/articles", label: "公众号文章", icon: FileText },
     { href: "/manage/showcase", label: "作品展示", icon: Clapperboard },
@@ -72,6 +75,7 @@ export default function Nav({ user }: { user: User }) {
         ))}
       </nav>
       <div className="space-y-1 border-t border-zinc-800 p-3">
+        <ThemeToggle />
         <Link
           href="/"
           className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800/70 hover:text-zinc-200"

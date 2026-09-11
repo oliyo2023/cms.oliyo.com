@@ -291,3 +291,48 @@ html {
   font-family: ui-monospace, monospace;
   font-size: 0.9em;
 }
+
+/* ---------------------------------------------------------------------------
+   Admin light theme
+   后台（/manage）浅色档：把 Tailwind 的 zinc 阶梯与深色向的强调色调重映射到
+   「浅底 + 深字」，使既有 dark-first 类名（bg-zinc-950 / text-zinc-100 / …）
+   在作用域内整体翻转，无需逐文件改写类名。深色档不写任何规则——它就是现状。
+   作用域 `.admin` 由 manage/layout.tsx 提供；属性由 manage/theme-toggle.tsx 设置。
+--------------------------------------------------------------------------- */
+
+html[data-admin-theme="light"] .admin {
+  color-scheme: light;
+  /* body 的硬编码 #e4e4e7 会被无类名的文本继承，浅底上必须换深字。 */
+  color: #18181b;
+  --color-zinc-50: #09090b;
+  --color-zinc-100: #18181b;
+  --color-zinc-200: #27272a;
+  --color-zinc-300: #3f3f46;
+  --color-zinc-400: #52525b;
+  --color-zinc-500: #66666f;
+  --color-zinc-600: #6b6b74;
+  --color-zinc-700: #d4d4d8;
+  --color-zinc-800: #e4e4e7;
+  --color-zinc-900: #f4f4f5;
+  --color-zinc-950: #ffffff;
+  --color-indigo-300: #4338ca;
+  --color-indigo-400: #4338ca;
+  --color-indigo-500: #4338ca;
+  --color-red-300: #b91c1c;
+  --color-red-400: #b91c1c;
+  --color-red-800: #fecaca;
+  --color-red-900: #fee2e2;
+  --color-red-950: #fff1f2;
+  --color-emerald-300: #047857;
+  --color-emerald-400: #047857;
+  --color-emerald-500: #047857;
+  --color-emerald-800: #a7f3d0;
+  --color-emerald-900: #d1fae5;
+  --color-amber-400: #b45309;
+  scrollbar-color: #d4d4d8 transparent;
+}
+
+/* 全局 `* { scrollbar-color }` 会压过继承，需同级选择器覆盖。 */
+html[data-admin-theme="light"] .admin * {
+  scrollbar-color: #d4d4d8 transparent;
+}
