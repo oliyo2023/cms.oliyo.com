@@ -6,6 +6,7 @@ import { Eye, EyeOff, Film, Pencil, Plus, Sparkles, Trash2, Upload } from "lucid
 import { btnGhost, btnPrimary, cx, inputCls } from "@/components/ui";
 import Modal from "@/components/modal";
 import MediaPicker from "@/components/media-picker";
+import { runVideoJob } from "@/lib/video-job";
 
 type Category = "gallery" | "video" | "episode";
 
@@ -34,12 +35,6 @@ type Series = {
 
 const refToUrl = (ref: string) => (ref.startsWith("r2://") ? `/media/${ref.slice(5)}` : ref);
 const fmtDate = (t: number) => new Date(t).toLocaleString("zh-CN", { dateStyle: "short", timeStyle: "short" });
-
-function sleep(ms: number): Promise<void> {
-  const { promise, resolve } = Promise.withResolvers<void>();
-  setTimeout(resolve, ms);
-  return promise;
-}
 
 function useTip(): [string | null, (msg: string) => void] {
   const [tip, setTip] = useState<string | null>(null);
@@ -346,52 +341,16 @@ function VideoGenModal({
     setBusy(true);
     setPhase("polling");
     setMessage("已提交任务，等待生成…");
-    try {
-      const res = await fetch("/api/ai/video", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: prompt.trim() }),
-      });
-      const data = (await res.json()) as { configured?: boolean; message?: string; taskId?: string; pollMs?: number; error?: string };
-      if (res.status === 501 || data.configured === false) {
-        setPhase("error");
-        setMessage(data.message ?? data.error ?? "视频生成服务未配置");
-        return;
-      }
-      if (!res.ok || !data.taskId) {
-        setPhase("error");
-        setMessage(data.error ?? "提交失败");
-        return;
-      }
-      const pollMs = data.pollMs ?? 15000;
-      let done = false;
-      for (let i = 0; i < 8 && !done; i++) {
-        await sleep(Math.min(pollMs, 15000));
-        const pollRes = await fetch(`/api/ai/video?id=${encodeURIComponent(data.taskId)}`);
-        const poll = (await pollRes.json()) as { ok?: boolean; status?: string; url?: string; message?: string };
-        if (poll.ok && poll.status === "done" && poll.url) {
-          setVideoUrl(poll.url);
-          setPhase("done");
-          setMessage("生成完成");
-          done = true;
-        } else if (poll.status === "error" || pollRes.status >= 400) {
-          setPhase("error");
-          setMessage(poll.message ?? "任务查询失败");
-          done = true;
-        } else {
-          setMessage(`生成中（异步任务，轮询第 ${i + 1} 次）…`);
-        }
-      }
-      if (!done) {
-        setPhase("error");
-        setMessage("任务仍在排队，请稍后到历史记录查看；或使用素材库上传视频后发布。");
-      }
-    } catch {
+    const result = await runVideoJob(prompt.trim(), setMessage);
+    if (result.ok) {
+      setVideoUrl(result.url);
+      setPhase("done");
+      setMessage("生成完成");
+    } else {
       setPhase("error");
-      setMessage("网络错误");
-    } finally {
-      setBusy(false);
+      setMessage(result.message);
     }
+    setBusy(false);
   }
 
   async function publishAsVideo() {

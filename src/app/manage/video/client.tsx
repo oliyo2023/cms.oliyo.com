@@ -99,8 +99,8 @@ export default function VideoClient({ recent, configured }: { recent: RecentVide
     setMessage("生成完成");
   }
 
-  async function publish(url: string, prompt: string, published: boolean) {
-    setStates((prev) => ({ ...prev, [url]: "busy" }));
+  async function publish(id: string, url: string, prompt: string, published: boolean) {
+    setStates((prev) => ({ ...prev, [id]: "busy" }));
     const title = prompt.trim() ? prompt.trim().slice(0, 40) : "视频成片";
     const res = await fetch("/api/showcase", {
       method: "POST",
@@ -114,11 +114,11 @@ export default function VideoClient({ recent, configured }: { recent: RecentVide
       }),
     });
     if (!res.ok) {
-      setStates((prev) => ({ ...prev, [url]: "idle" }));
+      setStates((prev) => ({ ...prev, [id]: "idle" }));
       flash("发布失败，请重试");
       return;
     }
-    setStates((prev) => ({ ...prev, [url]: published ? "published" : "draft" }));
+    setStates((prev) => ({ ...prev, [id]: published ? "published" : "draft" }));
     flash(published ? "已发布到公开站「视频成片」" : "已存为未发布草稿");
     router.refresh();
   }
@@ -150,7 +150,7 @@ export default function VideoClient({ recent, configured }: { recent: RecentVide
         )}
         {!configured && (
           <p className="text-[11px] leading-5 text-amber-400">
-            视频生成服务未配置：请到「AI 服务设置」填写 VIDEO_API_KEY / AGNES_API_KEY。
+            视频生成服务未配置：请到「系统设置」填写 VIDEO_API_KEY / AGNES_API_KEY。
           </p>
         )}
         <p className="text-[11px] leading-5 text-zinc-600">
@@ -180,8 +180,8 @@ export default function VideoClient({ recent, configured }: { recent: RecentVide
                 url={r.url}
                 prompt={r.prompt}
                 createdAt={r.createdAt}
-                state={states[r.url] ?? "idle"}
-                onPublish={(published) => void publish(r.url, r.prompt, published)}
+                state={states[r.id] ?? "idle"}
+                onPublish={(published) => void publish(r.id, r.url, r.prompt, published)}
               />
             ))}
           </div>
@@ -204,8 +204,8 @@ export default function VideoClient({ recent, configured }: { recent: RecentVide
                   url={r.url}
                   prompt=""
                   createdAt={r.createdAt}
-                  state={states[r.url] ?? "idle"}
-                  onPublish={(published) => void publish(r.url, "", published)}
+                  state={states[r.id] ?? "idle"}
+                  onPublish={(published) => void publish(r.id, r.url, "", published)}
                 />
               ))}
             </div>

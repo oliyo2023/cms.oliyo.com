@@ -6,12 +6,7 @@ import { Clapperboard, Loader2, Play, Save, Sparkles, Video } from "lucide-react
 import { btnGhost, btnPrimary, cx, inputCls } from "@/components/ui";
 import { postSse } from "@/lib/sse-client";
 import { DRAMA_GENRES, parseDramaPlan, type DramaPlan } from "@/lib/prompts";
-
-function sleep(ms: number): Promise<void> {
-  const { promise, resolve } = Promise.withResolvers<void>();
-  setTimeout(resolve, ms);
-  return promise;
-}
+import { runVideoJob } from "@/lib/video-job";
 
 function DramaShotRow({ epIdx, shot, onUrl }: { epIdx: number; shot: { shot: number; prompt: string }; onUrl: (key: string, url: string) => void }) {
   const key = `${epIdx}-${shot.shot}`;
@@ -23,40 +18,13 @@ function DramaShotRow({ epIdx, shot, onUrl }: { epIdx: number; shot: { shot: num
 
   async function start() {
     setSt({ status: "polling", url: "", message: "已提交视频任务，等待生成…" });
-    try {
-      const res = await fetch("/api/ai/video", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: shot.prompt }),
-      });
-      const data = (await res.json()) as { configured?: boolean; message?: string; taskId?: string; pollMs?: number; error?: string };
-      if (res.status === 501 || data.configured === false) {
-        setSt({ status: "error", url: "", message: data.message ?? data.error ?? "视频生成服务未配置" });
-        return;
-      }
-      if (!res.ok || !data.taskId) {
-        setSt({ status: "error", url: "", message: data.error ?? "提交失败" });
-        return;
-      }
-      const pollMs = data.pollMs ?? 15000;
-      for (let i = 0; i < 8; i++) {
-        await sleep(Math.min(pollMs, 15000));
-        const pollRes = await fetch(`/api/ai/video?id=${encodeURIComponent(data.taskId)}`);
-        const poll = (await pollRes.json()) as { ok?: boolean; status?: string; url?: string; message?: string };
-        if (poll.ok && poll.status === "done" && poll.url) {
-          setSt({ status: "done", url: poll.url, message: "" });
-          onUrl(key, poll.url);
-          return;
-        }
-        if (poll.status === "error" || pollRes.status >= 400) {
-          setSt({ status: "error", url: "", message: poll.message ?? "任务查询失败" });
-          return;
-        }
-      }
-      setSt({ status: "error", url: "", message: "任务仍在排队，请稍后在历史记录查看" });
-    } catch {
-      setSt({ status: "error", url: "", message: "网络错误" });
+    const result = await runVideoJob(shot.prompt, (message) => setSt({ status: "polling", url: "", message }));
+    if (!result.ok) {
+      setSt({ status: "error", url: "", message: result.message });
+      return;
     }
+    setSt({ status: "done", url: result.url, message: "" });
+    onUrl(key, result.url);
   }
 
   return (
