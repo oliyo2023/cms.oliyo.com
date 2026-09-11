@@ -85,10 +85,32 @@ pnpm ship -m "<提交说明>" -- <改动的文件...>
 
 ## 部署（Cloudflare）
 
+推送到 `main` 由 GitHub Actions 自动构建并部署（`.github/workflows/deploy.yml`），也可在 Actions 页面手动触发。
+
+### 一次性准备
+
+1. **填 D1 真实库 ID**：`wrangler.jsonc` 的 `database_id` 目前是占位符 `REPLACE_WITH_REAL_D1_DATABASE_ID`，不填无法部署。
+   用 `pnpm exec wrangler d1 list` 查到真实 id，二选一：
+   - 直接写进 `wrangler.jsonc`（D1 id 不是密钥，可入库）；或
+   - 配成仓库 secret `CLOUDFLARE_D1_DATABASE_ID`（CI 部署时自动替换，仓库里保持占位符）。
+2. **配置仓库 secrets**（Settings → Secrets and variables → Actions）：
+   | Secret | 用途 |
+   | --- | --- |
+   | `CLOUDFLARE_API_TOKEN` | 部署凭据，需 Workers Scripts:Edit、D1:Edit、R2:Edit 权限 |
+   | `CLOUDFLARE_ACCOUNT_ID` | 目标账户 |
+   | `CLOUDFLARE_D1_DATABASE_ID` | 可选，见上 |
+3. **Worker 运行时密钥**（`AGNES_API_KEY` 等）用 `wrangler secret put <NAME>` 配一次即可，部署不会清除；
+   也可在后台「系统设置」页保存到 D1 `settings` 表（优先级更高）。
+
+### 手动部署
+
 ```bash
-pnpm db:remote     # 应用 drizzle 迁移到远端 D1
-pnpm deploy        # opennextjs-cloudflare build && wrangler deploy
+pnpm db:remote      # 应用 drizzle 迁移到远端 D1（结构变更需人工确认，CI 不自动执行）
+pnpm run deploy     # opennextjs-cloudflare build && wrangler deploy
 ```
+
+> 注意：不要用 `pnpm deploy`——那是 pnpm 内置的 workspace 部署命令，会静默走错分支。
+> 仓库脚本一律用 `pnpm run <script>` 调用。
 
 敏感变量用 `wrangler secret put <NAME>` 配置；`wrangler.jsonc` 的 `vars` 只放非敏感项。
 
