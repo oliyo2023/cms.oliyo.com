@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import type { Viewport } from "next";
 import { currentUser } from "@/lib/api";
+import { getSiteSeo } from "@/lib/seo";
 import Nav from "./nav";
 import type { User } from "@/lib/schema";
 
@@ -25,10 +26,11 @@ const THEME_BOOT =
 export default async function ManageLayout({ children }: { children: React.ReactNode }) {
   const user = await currentUser();
   if (!user) redirect("/login");
+  const seo = await getSiteSeo();
   return (
     <div className="admin flex min-h-screen flex-col bg-zinc-950 lg:flex-row">
       <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
-      <Nav user={user} />
+      <Nav user={user} siteName={seo.name} />
       <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 lg:px-10 lg:py-6">{children}</main>
     </div>
   );

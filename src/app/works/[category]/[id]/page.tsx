@@ -12,9 +12,9 @@ type Params = { category: string; id: string };
 
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { category, id } = await params;
-  if (category !== "gallery" && category !== "video") return { title: "创作台" };
+  if (category !== "gallery" && category !== "video") return { title: "作品" };
   const item = await getShowcaseItem(id);
-  return { title: item ? `${item.title} — 创作台` : "创作台" };
+  return { title: item ? item.title : "作品" };
 }
 
 export default async function WorkPage({ params }: { params: Promise<Params> }) {

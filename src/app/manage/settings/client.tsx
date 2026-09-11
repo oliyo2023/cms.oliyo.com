@@ -7,6 +7,7 @@ import {
   Eye,
   EyeOff,
   Fingerprint,
+  Globe,
   Image as ImageIcon,
   KeyRound,
   Loader2,
@@ -26,6 +27,8 @@ type Field = {
   fromDb: boolean;
   hasEnv: boolean;
   value?: string;
+  /** 有值时渲染为下拉选择（与 API 的 FieldSpec.options 对应）。 */
+  options?: Array<{ value: string; label: string }>;
 };
 
 /** 每个服务标签页的元信息与字段清单；「共享 Key」单独成卡，置顶常驻。 */
@@ -42,6 +45,22 @@ type TabDef = {
 const SHARED = "AGNES_API_KEY";
 
 const TABS: TabDef[] = [
+  {
+    id: "site",
+    title: "站点与 SEO",
+    desc: "站点名称、标题与描述，以及搜索引擎收录；改动即时生效，无需重新部署。",
+    icon: Globe,
+    names: [
+      "SITE_NAME",
+      "SITE_TITLE",
+      "SITE_DESCRIPTION",
+      "SITE_KEYWORDS",
+      "SITE_OG_IMAGE",
+      "SITE_URL",
+      "SITE_INDEXABLE",
+    ],
+    wide: ["SITE_TITLE", "SITE_DESCRIPTION", "SITE_OG_IMAGE", "SITE_URL"],
+  },
   {
     id: "llm",
     title: "文本生成",
@@ -77,17 +96,16 @@ const TABS: TabDef[] = [
   {
     id: "oauth",
     title: "第三方登录",
-    desc: "GitHub / Google 登录；Client ID 留空即隐藏对应登录入口，改动立即生效。",
+    desc: "GitHub / Google 登录；Client ID 留空即隐藏对应登录入口，回调基址取「站点与 SEO」的站点地址。",
     icon: Fingerprint,
     names: [
-      "SITE_URL",
       "OAUTH_STATE_SECRET",
       "GITHUB_CLIENT_ID",
       "GITHUB_CLIENT_SECRET",
       "GOOGLE_CLIENT_ID",
       "GOOGLE_CLIENT_SECRET",
     ],
-    wide: ["SITE_URL", "OAUTH_STATE_SECRET"],
+    wide: ["OAUTH_STATE_SECRET"],
   },
 ];
 
@@ -187,6 +205,30 @@ function TextRow({
         placeholder="留空 = 使用默认/环境变量"
         onChange={(e) => onChange(e.target.value)}
       />
+      {field.hint && <p className="mt-1.5 text-xs leading-relaxed text-zinc-500">{field.hint}</p>}
+    </div>
+  );
+}
+
+function SelectRow({
+  field,
+  value,
+  onChange,
+}: {
+  field: Field;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <FieldLabel field={field} />
+      <select className={cx(inputCls, "bg-zinc-900")} value={value} onChange={(e) => onChange(e.target.value)}>
+        {field.options?.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
       {field.hint && <p className="mt-1.5 text-xs leading-relaxed text-zinc-500">{field.hint}</p>}
     </div>
   );
@@ -394,7 +436,14 @@ export default function SettingsClient() {
                   </div>
                 );
               }
-              return (
+              return f.options?.length ? (
+                <SelectRow
+                  key={name}
+                  field={f}
+                  value={drafts[name] ?? f.value ?? ""}
+                  onChange={(v) => onDraft(name, v)}
+                />
+              ) : (
                 <TextRow
                   key={name}
                   field={f}

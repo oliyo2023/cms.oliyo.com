@@ -29,12 +29,14 @@ export default function Hero({
   primaryHref,
   primaryLabel,
   browseHref,
+  siteName,
 }: {
   tiles: string[];
   stats: HeroStat[];
   primaryHref: string;
   primaryLabel: string;
   browseHref: string;
+  siteName: string;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
   const reduce = useReducedMotion();
@@ -117,7 +119,7 @@ export default function Hero({
           </motion.h1>
 
           <motion.p variants={riseIn} className="mx-auto mt-5 max-w-xl text-sm leading-7 text-zinc-300 sm:text-base">
-            这里汇总创作台产出的图片、文章、剧集与视频成片；登录后可创作、排版并发布你的内容。
+            这里汇总{siteName}产出的图片、文章、剧集与视频成片；登录后可创作、排版并发布你的内容。
           </motion.p>
 
           {/* 分类计数兼锚点导航：同时兜底移动端隐藏的顶部导航 */}

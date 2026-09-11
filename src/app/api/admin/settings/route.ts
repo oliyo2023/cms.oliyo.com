@@ -8,10 +8,34 @@ import { llmConfig } from "@/lib/ai";
 
 export const dynamic = "force-dynamic";
 
-type FieldSpec = { name: string; label: string; secret: boolean; hint?: string };
+type FieldSpec = {
+  name: string;
+  label: string;
+  secret: boolean;
+  hint?: string;
+  /** 有 options 时前端渲染为下拉选择，避免布尔值让人手打 true/false 出错。 */
+  options?: Array<{ value: string; label: string }>;
+};
 
 /** 后台可配置项清单（含展示分组信息）。 */
-export const AI_FIELDS: FieldSpec[] = [
+export const SETTINGS_FIELDS: FieldSpec[] = [
+  // —— 站点与 SEO：DB 值优先于部署 env/secret；改动即时生效，无需重新部署 ——
+  { name: "SITE_NAME", label: "站点名称", secret: false, hint: "用于标题后缀（… — 站点名称）、页头文字与 og:site_name" },
+  { name: "SITE_TITLE", label: "首页标题", secret: false, hint: "首页 <title> 完整文案；留空则回退站点名称" },
+  { name: "SITE_DESCRIPTION", label: "站点描述", secret: false, hint: "首页 meta description 与社交分享描述，建议 60-120 字" },
+  { name: "SITE_KEYWORDS", label: "关键词", secret: false, hint: "英文逗号分隔；留空则不输出 keywords" },
+  { name: "SITE_OG_IMAGE", label: "社交分享图", secret: false, hint: "绝对 URL（https://…），建议 1200×630；留空则用纯文本卡片" },
+  { name: "SITE_URL", label: "站点地址", secret: false, hint: "canonical 基址，同时用于 sitemap、分享图绝对化与 OAuth 回调" },
+  {
+    name: "SITE_INDEXABLE",
+    label: "搜索引擎收录",
+    secret: false,
+    hint: "关闭后 robots.txt 整站禁止抓取，页面也带 noindex",
+    options: [
+      { value: "true", label: "允许收录" },
+      { value: "false", label: "禁止收录" },
+    ],
+  },
   { name: "AGNES_API_KEY", label: "Agnes API Key", secret: true },
   { name: "LLM_API_KEY", label: "文本独立 Key", secret: true, hint: "仅在需要覆盖共享 Key 时填写" },
   { name: "LLM_BASE_URL", label: "Base URL", secret: false },
@@ -29,7 +53,6 @@ export const AI_FIELDS: FieldSpec[] = [
   { name: "VIDEO_SECONDS", label: "时长（秒）", secret: false, hint: "4 - 12" },
   { name: "VIDEO_POLL_URL", label: "任务查询 URL 模板", secret: false, hint: "支持 {id}、{model} 占位符" },
   // —— 第三方登录：DB 值优先于部署 env/secret（与 AI 配置同优先级）——
-  { name: "SITE_URL", label: "站点地址", secret: false, hint: "如 https://cms.oliyo.com，OAuth 回调基址" },
   { name: "OAUTH_STATE_SECRET", label: "State 签名密钥", secret: true, hint: "≥32 位随机串；未配置时 state 校验退化为弱模式" },
   { name: "GITHUB_CLIENT_ID", label: "GitHub Client ID", secret: false, hint: "留空 = 隐藏 GitHub 登录入口" },
   { name: "GITHUB_CLIENT_SECRET", label: "GitHub Client Secret", secret: true, hint: "OAuth App 密钥" },
@@ -37,8 +60,8 @@ export const AI_FIELDS: FieldSpec[] = [
   { name: "GOOGLE_CLIENT_SECRET", label: "Google Client Secret", secret: true, hint: "OAuth 客户端密钥" },
 ];
 
-const FIELD_NAMES = AI_FIELDS.map((f) => f.name);
-const isSecretField = (name: string) => AI_FIELDS.some((f) => f.name === name && f.secret);
+const FIELD_NAMES = SETTINGS_FIELDS.map((f) => f.name);
+const isSecretField = (name: string) => SETTINGS_FIELDS.some((f) => f.name === name && f.secret);
 
 export async function GET(req: Request) {
   await requireAdmin(req);
@@ -47,7 +70,7 @@ export async function GET(req: Request) {
     .from(settingsTable)
     .where(inArray(settingsTable.key, FIELD_NAMES));
   const dbMap = new Map(rows.map((r) => [r.key, r.value]));
-  const fields = AI_FIELDS.map((spec) => {
+  const fields = SETTINGS_FIELDS.map((spec) => {
     const dbVal = dbMap.get(spec.name);
     const envVal = getVar(spec.name);
     if (spec.secret) {

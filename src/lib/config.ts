@@ -4,6 +4,9 @@ import { getSettingsIn } from "@/lib/repos/settings";
 const DEFAULTS: Record<string, string> = {
   REGISTRATION_OPEN: "true",
   SITE_NAME: "创作台",
+  SITE_TITLE: "创作台 — AI 生成图文 · 智能洗稿 · 公众号排版",
+  SITE_DESCRIPTION: "AI 图文创作、洗稿与公众号排版管理平台",
+  SITE_INDEXABLE: "true",
   NEW_USER_TEXT_QUOTA: "100000",
   NEW_USER_IMAGE_QUOTA: "30",
   NEW_USER_VIDEO_QUOTA: "10",

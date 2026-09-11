@@ -5,19 +5,21 @@ import { CalendarDays, ChevronLeft } from "lucide-react";
 import SiteHeader, { SiteFooter } from "@/components/site-header";
 import { getArticle } from "@/lib/repos/articles";
 import { mediaUrl } from "@/lib/refs";
+import { getSiteSeo } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const a = await getArticle(id);
-  return { title: a && a.status === "published" ? `${a.title} — 创作台` : "创作台" };
+  return { title: a && a.status === "published" ? a.title : "文章" };
 }
 
 export default async function ArticlePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const a = await getArticle(id);
   if (!a || a.status !== "published") notFound();
+  const seo = await getSiteSeo();
 
   return (
     <>
@@ -37,7 +39,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ id: st
             <div className="mt-3 flex items-center gap-1.5 text-xs text-zinc-400">
               <CalendarDays className="h-3.5 w-3.5" />
               {a.publishedAt ? new Date(a.publishedAt).toLocaleDateString("zh-CN") : ""}
-              <span className="ml-1 rounded bg-indigo-50 px-1.5 py-0.5 text-indigo-500">创作台出品</span>
+              <span className="ml-1 rounded bg-indigo-50 px-1.5 py-0.5 text-indigo-500">{seo.name}出品</span>
             </div>
             {a.summary && <p className="mt-4 text-sm leading-6 text-zinc-500">{a.summary}</p>}
             <div

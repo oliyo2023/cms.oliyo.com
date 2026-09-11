@@ -10,6 +10,7 @@ import { Reveal, Tilt } from "@/components/home/reveal";
 import { currentUser } from "@/lib/api";
 import { listPublishedArticles } from "@/lib/repos/articles";
 import { listShowcaseItems, seriesWithEpisodeCount } from "@/lib/repos/showcase";
+import { getSiteSeo } from "@/lib/seo";
 import { isVideoRef, mediaUrl } from "@/lib/refs";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +28,7 @@ export default async function HomePage() {
     currentUser(),
   ]);
   const publishedSeries = allSeries.filter((s) => s.published);
+  const seo = await getSiteSeo();
   const canEdit = user !== null;
 
   // 首屏视频墙用成片素材：素材库没有静帧，背景只能用视频拼
@@ -61,6 +63,7 @@ export default async function HomePage() {
           primaryHref={canEdit ? "/manage" : "/login?register=1"}
           primaryLabel={canEdit ? "进入控制台" : "开始创作"}
           browseHref="#gallery"
+          siteName={seo.name}
         />
 
         <Section

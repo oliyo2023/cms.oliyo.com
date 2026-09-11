@@ -38,7 +38,7 @@ const ADMIN_ITEMS = [
  * 无障碍树，否则键盘 Tab 会跑进屏幕外的菜单里。visibility 在 transition 中
  * 按步进插值，因此滑出动画仍然完整（并非瞬隐）。
  */
-export default function Nav({ user }: { user: User }) {
+export default function Nav({ user, siteName }: { user: User; siteName: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -133,7 +133,7 @@ export default function Nav({ user }: { user: User }) {
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white">
             <PenTool className="h-4 w-4" aria-hidden="true" />
           </span>
-          <span className="text-sm font-semibold text-zinc-100">创作台</span>
+          <span className="text-sm font-semibold text-zinc-100">{siteName}</span>
         </span>
       </header>
 
@@ -154,7 +154,7 @@ export default function Nav({ user }: { user: User }) {
             <PenTool className="h-5 w-5" aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-semibold text-zinc-100">创作台</div>
+            <div className="text-sm font-semibold text-zinc-100">{siteName}</div>
             <div className="text-[11px] text-zinc-500">管理控制台</div>
           </div>
           <button

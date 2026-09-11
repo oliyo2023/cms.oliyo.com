@@ -5,11 +5,12 @@ import BrandPanel from "./brand-panel";
 import LoginForm from "./login-form";
 import MotionRoot from "@/components/motion-root";
 import { resolveVar } from "@/lib/config";
+import { getSiteSeo } from "@/lib/seo";
 import { oauthErrorText } from "@/lib/oauth";
 
 export const metadata: Metadata = {
-  title: "登录 — 创作台",
-  description: "登录创作台，管理你的 AI 图文、洗稿与公众号排版内容。",
+  title: "登录",
+  description: "登录后管理你的 AI 图文、洗稿与公众号排版内容。",
 };
 
 export default async function LoginPage({
@@ -18,6 +19,7 @@ export default async function LoginPage({
   searchParams: Promise<{ register?: string; oauth_error?: string; provider?: string }>;
 }) {
   const { register, oauth_error, provider } = await searchParams;
+  const seo = await getSiteSeo();
   type OAuthId = "github" | "google";
   const providers = (
     await Promise.all([
@@ -42,7 +44,7 @@ export default async function LoginPage({
           <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/30 via-transparent to-zinc-950/80" />
         </div>
 
-        <BrandPanel />
+        <BrandPanel siteName={seo.name} />
 
         <section className="relative flex items-center justify-center px-4 py-10 sm:px-8 lg:py-16">
           <div className="w-full max-w-md">
@@ -50,6 +52,7 @@ export default async function LoginPage({
               initialMode={register ? "register" : "login"}
               providers={providers}
               oauthError={oauthError}
+              siteName={seo.name}
             />
             <p className="mt-6 text-center text-xs text-zinc-400">
               <Link

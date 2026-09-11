@@ -25,10 +25,12 @@ export default function LoginForm({
   initialMode = "login",
   providers = [],
   oauthError = null,
+  siteName,
 }: {
   initialMode?: Mode;
   providers?: OAuthId[];
   oauthError?: string | null;
+  siteName: string;
 }) {
   const router = useRouter();
   const emailId = useId();
@@ -103,7 +105,7 @@ export default function LoginForm({
               {isRegister ? "创建账号" : "欢迎回来"}
             </h2>
             <p className="mt-1.5 text-sm text-zinc-400">
-              {isRegister ? "注册后即可开始创作与发布。" : "登录以进入创作台管理你的内容。"}
+              {isRegister ? "注册后即可开始创作与发布。" : `登录以进入${siteName}管理你的内容。`}
             </p>
           </motion.div>
         </AnimatePresence>

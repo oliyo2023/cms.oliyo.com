@@ -10,7 +10,7 @@ const FEATURES = [
   { icon: FileText, title: "公众号排版", desc: "一键排版并发布" },
 ];
 
-export default function BrandPanel() {
+export default function BrandPanel({ siteName }: { siteName: string }) {
   return (
     <section className="relative flex flex-col justify-center px-6 pb-4 pt-12 sm:px-10 lg:px-14 lg:py-16">
       <motion.div
@@ -24,7 +24,7 @@ export default function BrandPanel() {
             <span aria-hidden className="anim-halo absolute inset-0 rounded-2xl bg-indigo-500/50" />
             <PenTool className="relative h-5 w-5" />
           </span>
-          <span className="text-lg font-semibold tracking-tight text-zinc-100">创作台</span>
+          <span className="text-lg font-semibold tracking-tight text-zinc-100">{siteName}</span>
         </motion.div>
 
         <motion.h1

@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const rows = await db().select().from(series).where(eq(series.id, id)).limit(1);
-  return { title: rows[0] ? `${rows[0].title} — 创作台` : "创作台" };
+  return { title: rows[0] ? rows[0].title : "剧集" };
 }
 
 export default async function SeriesPage({ params }: { params: Promise<{ id: string }> }) {

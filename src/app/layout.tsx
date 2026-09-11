@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next";
+import { siteMetadata } from "@/lib/seo";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "创作台 — AI 生成图文 · 智能洗稿 · 公众号排版",
-  description: "AI 图文创作、洗稿与公众号排版管理平台",
-};
+// 站点名称/标题/描述等在后台「系统设置 → 站点与 SEO」里改，因此元数据按请求从 D1 组装。
+export function generateMetadata(): Promise<Metadata> {
+  return siteMetadata();
+}
 
 export const viewport: Viewport = {
   width: "device-width",
