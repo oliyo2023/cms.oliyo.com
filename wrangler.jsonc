@@ -1,6 +1,6 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "cms-oliyo",
+	"name": "ai-wechat-cms",
 	"main": ".open-next/worker.js",
 	"compatibility_date": "2026-08-01",
 	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
@@ -11,24 +11,24 @@
 	"services": [
 		{
 			"binding": "WORKER_SELF_REFERENCE",
-			"service": "cms-oliyo"
+			"service": "ai-wechat-cms"
 		}
 	],
 	"r2_buckets": [
 		{
 			"binding": "NEXT_INC_CACHE_R2_BUCKET",
-			"bucket_name": "cms-oliyo-opennext-cache"
+			"bucket_name": "ai-wechat-cms-opennext-cache"
 		},
 		{
 			"binding": "MEDIA",
-			"bucket_name": "cms-oliyo-media"
+			"bucket_name": "ai-wechat-cms-media"
 		}
 	],
 	"d1_databases": [
 		{
 			"binding": "DB",
-			"database_name": "oliyo-db",
-			"database_id": "REPLACE_WITH_REAL_D1_DATABASE_ID",
+			"database_name": "ai-wechat-cms",
+			"database_id": "220cb18f-4bb1-46d4-aa20-1a1e79dd1e5e",
 			"migrations_dir": "drizzle"
 		}
 	],

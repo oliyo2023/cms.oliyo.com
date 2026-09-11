@@ -17,7 +17,7 @@
     "worker:dev": "tsx scripts/migrate-dev.ts && opennextjs-cloudflare build && wrangler dev",
     "deploy": "opennextjs-cloudflare build && wrangler deploy",
     "db:generate": "drizzle-kit generate",
-    "db:remote": "wrangler d1 migrations apply oliyo-db --remote",
+    "db:remote": "wrangler d1 migrations apply ai-wechat-cms --remote",
     "typecheck": "tsc --noEmit",
     "ship": "tsx scripts/ship.ts"
   },

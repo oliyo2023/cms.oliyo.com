@@ -1,13 +1,13 @@
 name: Deploy to Cloudflare
 
-# 推送 main 即构建并部署 Worker；也可在 Actions 页面手动触发。
+# 推送 main 即构建并部署到 Cloudflare Worker（ai-wechat-cms）；也可在 Actions 页面手动触发。
 # D1 迁移不在这里自动执行（生产库结构变更需人工确认）：本地跑 `pnpm db:remote`。
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
-# 部署不可并发：同一分支串行，且不取消进行中的部署（避免半成品状态）。
+# 部署不可并发：同一分支串行，且不取消进行中的部署（避免半完成状态）。
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
@@ -36,31 +36,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # wrangler.jsonc 里的 database_id 是占位符时无法真实部署。
-      # 优先用仓库 secret 覆盖；也可直接在仓库里填真实值（此步即跳过）。
-      - name: Resolve D1 database id
-        env:
-          D1_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
-        run: |
-          set -euo pipefail
-          # ${D1_ID:-} 而非 ${D1_ID}：secret 未配置 / env 未提供时不能因 set -u 直接崩掉
-          if [ -n "${D1_ID:-}" ]; then
-            case "${D1_ID}" in
-              *[!0-9a-fA-F-]*) echo "::error::CLOUDFLARE_D1_DATABASE_ID 不是合法的 D1 database id（应为 UUID）"; exit 1 ;;
-            esac
-            sed -i "s|REPLACE_WITH_REAL_D1_DATABASE_ID|${D1_ID}|" wrangler.jsonc
-          fi
-          if grep -q 'REPLACE_WITH_REAL_D1_DATABASE_ID' wrangler.jsonc; then
-            echo "::error::wrangler.jsonc 的 D1 database_id 仍是占位符，无法部署。"
-            echo "二选一：① 在仓库内填入真实 id；② 配置仓库 secret CLOUDFLARE_D1_DATABASE_ID。"
-            echo "真实 id 可用 \`pnpm exec wrangler d1 list\` 查看。"
-            exit 1
-          fi
-
       # next build 自带 TypeScript 类型检查，类型错误会在这里挡住部署。
       - name: Build
         run: pnpm worker:build
 
+      # Worker 名、D1 库 id、R2 桶名都写在 wrangler.jsonc 里（均非密钥），无需额外变量。
       - name: Deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
