@@ -18,7 +18,7 @@ function DramaShotRow({ epIdx, shot, onUrl }: { epIdx: number; shot: { shot: num
 
   async function start() {
     setSt({ status: "polling", url: "", message: "已提交视频任务，等待生成…" });
-    const result = await runVideoJob(shot.prompt, (message) => setSt({ status: "polling", url: "", message }));
+    const result = await runVideoJob({ prompt: shot.prompt }, (message) => setSt({ status: "polling", url: "", message }));
     if (!result.ok) {
       setSt({ status: "error", url: "", message: result.message });
       return;

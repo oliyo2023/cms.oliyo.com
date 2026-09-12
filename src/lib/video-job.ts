@@ -11,6 +11,18 @@ const MAX_POLL_ATTEMPTS = 8;
 /** 单次轮询间隔上限，服务端给的 pollMs 再大也不超过它。 */
 const MAX_POLL_MS = 15000;
 
+/** 生成模式：text 纯文本；keyframe 首/尾帧控制；reference 图片参考（见 Agnes 视频文档）。 */
+export type VideoMode = "text" | "keyframe" | "reference";
+
+/** 提交给 /api/ai/video 的任务参数；首尾帧与参考图可传素材库引用（r2://）或外链。 */
+export type VideoJobSpec = {
+  prompt: string;
+  mode?: VideoMode;
+  firstFrame?: string;
+  lastFrame?: string;
+  images?: string[];
+};
+
 export type VideoJobResult =
   | { ok: true; url: string }
   | { ok: false; message: string; unconfigured?: boolean };
@@ -21,7 +33,7 @@ function sleep(ms: number): Promise<void> {
   return promise;
 }
 
-export async function runVideoJob(prompt: string, onProgress?: (message: string) => void): Promise<VideoJobResult> {
+export async function runVideoJob(spec: VideoJobSpec, onProgress?: (message: string) => void): Promise<VideoJobResult> {
   onProgress?.("已提交任务，等待生成…");
 
   let res: Response;
@@ -29,7 +41,7 @@ export async function runVideoJob(prompt: string, onProgress?: (message: string)
     res = await fetch("/api/ai/video", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify(spec),
     });
   } catch {
     return { ok: false, message: "网络错误" };

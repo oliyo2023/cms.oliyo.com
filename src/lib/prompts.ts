@@ -251,6 +251,33 @@ function normalizeDramaPlan(obj: Record<string, unknown>): DramaPlan {
   };
 }
 
+// ---------- 候选文本接口（AI 图文关键词 / 短剧设定 / 视频提示词） ----------
+
+/** 候选接口的响应字段名：服务端各自返回，客户端按同一套 UI 渲染。 */
+export type SuggestField = "keywords" | "ideas" | "prompts";
+
+// ---------- AI 视频提示词（文生视频入口） ----------
+
+export const VIDEO_PROMPT_COUNT = 4;
+
+/** 按文档建议的顺序（主体场景 → 动作变化 → 镜头语言 → 视觉风格）产出可直接喂视频模型的提示词候选。 */
+export function buildVideoPromptMessages(opts: { idea: string; style?: string }): ChatMessage[] {
+  const system =
+    "你是 AI 视频提示词工程师。只输出 JSON 字符串数组，无任何解释、编号或 markdown 代码块标记。" +
+    `给出 ${VIDEO_PROMPT_COUNT} 条可直接喂给文生视频模型的画面提示词：每条 40-80 字，` +
+    "按「主体与场景 → 动作与变化 → 镜头语言（推拉摇移/景别）→ 视觉风格（光线、色彩、氛围）」的顺序描述，" +
+    "具体到画面可执行，彼此角度不重复。";
+  const user = [
+    opts.idea.trim() ? `画面构想：${opts.idea.trim()}` : "方向不限：给适合短视频成片的画面提示词。",
+    `视觉风格：${opts.style?.trim() ? opts.style.trim() : "电影级写实，自然光影"}`,
+    '输出示例：["雨后的未来城市街道，霓虹倒映在积水里，一辆银色跑车缓慢驶过，镜头低角度跟拍后缓缓拉远，写实光影，冷暖对比"]',
+  ].join("\n");
+  return [
+    { role: "system", content: system },
+    { role: "user", content: user },
+  ];
+}
+
 // ---------- 主题关键词候选（AI 图文） ----------
 
 export const KEYWORD_COUNT = 8;
@@ -272,8 +299,8 @@ export function buildKeywordMessages(opts: { seed?: string; tone: Tone; audience
   ];
 }
 
-/** 宽松解析：优先取 JSON 数组；输出成「每行一个数组」时逐段解析拼接；最后按行拆分（清掉编号/引号/项目符号）。 */
-export function parseKeywords(raw: string): string[] {
+/** 宽松解析候选列表：优先取 JSON 数组；输出成「每行一个数组」时逐段解析拼接；最后按行拆分（清掉编号/引号/项目符号）。 */
+export function parseStringList(raw: string, limit: number): string[] {
   const text = raw.trim();
   const start = text.indexOf("[");
   const end = text.lastIndexOf("]");
@@ -282,7 +309,7 @@ export function parseKeywords(raw: string): string[] {
       const arr: unknown = JSON.parse(text.slice(start, end + 1));
       if (Array.isArray(arr)) {
         const out = arr.map((v) => String(v ?? "").trim()).filter(Boolean);
-        if (out.length) return out.slice(0, KEYWORD_COUNT * 2);
+        if (out.length) return out.slice(0, limit);
       }
     } catch {
       const segments = text.match(/\[[^[\]]*\]/g);
@@ -296,7 +323,7 @@ export function parseKeywords(raw: string): string[] {
             // 坏段跳过，整体仍走按行拆分兜底
           }
         }
-        if (out.length) return out.slice(0, KEYWORD_COUNT * 2);
+        if (out.length) return out.slice(0, limit);
       }
     }
   }
@@ -304,5 +331,5 @@ export function parseKeywords(raw: string): string[] {
     .split("\n")
     .map((line) => line.replace(/^\s*(?:[-*•]|\d+[.、)）])\s*/, "").replace(/^["'“”「『]|["'“”」』]$/g, "").trim())
     .filter(Boolean)
-    .slice(0, KEYWORD_COUNT * 2);
+    .slice(0, limit);
 }

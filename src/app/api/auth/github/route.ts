@@ -1,5 +1,6 @@
 import { resolveVar } from "@/lib/config";
-import { issueOAuthState, safeNext, siteUrl } from "@/lib/oauth";
+import { issueOAuthState, safeNext } from "@/lib/oauth";
+import { siteUrl } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 

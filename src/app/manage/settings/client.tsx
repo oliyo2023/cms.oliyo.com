@@ -80,7 +80,7 @@ const TABS: TabDef[] = [
   {
     id: "video",
     title: "视频生成",
-    desc: "视频任务模型；分辨率可选 1K/2K/3K，Flash 固定 720P。",
+    desc: "视频任务模型与默认画幅；Flash 固定 720P，支持文生视频、首尾帧与图片参考。",
     icon: Clapperboard,
     names: [
       "VIDEO_API_KEY",

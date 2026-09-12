@@ -1,5 +1,6 @@
 import { resolveVar } from "@/lib/config";
-import { loginOAuthProfile, oauthFail, siteUrl, verifyOAuthState } from "@/lib/oauth";
+import { loginOAuthProfile, oauthFail, verifyOAuthState } from "@/lib/oauth";
+import { siteUrl } from "@/lib/site";
 import type { OAuthProfile } from "@/lib/oauth";
 
 export const dynamic = "force-dynamic";

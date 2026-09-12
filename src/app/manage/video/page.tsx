@@ -25,7 +25,9 @@ export default async function VideoPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <header>
         <h1 className="text-xl font-semibold text-zinc-100">AI 视频</h1>
-        <p className="mt-1 text-sm text-zinc-500">描述画面 → 异步生成视频 → 发布为公开站「视频成片」或先存草稿。</p>
+        <p className="mt-1 text-sm text-zinc-500">
+          描述画面或给定首尾帧 / 参考图 → 异步生成视频 → 发布为公开站「视频成片」或先存草稿。
+        </p>
       </header>
       <VideoClient recent={recent} configured={Boolean(cfg)} />
     </div>

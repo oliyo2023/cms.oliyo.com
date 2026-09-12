@@ -6,6 +6,7 @@ import { Eye, EyeOff, Film, Pencil, Plus, Sparkles, Trash2, Upload } from "lucid
 import { btnGhost, btnPrimary, cx, inputCls } from "@/components/ui";
 import Modal from "@/components/modal";
 import MediaPicker from "@/components/media-picker";
+import { emptyVideoDraft, VideoComposer, videoDraftError, type VideoDraft } from "@/components/video-composer";
 import { runVideoJob } from "@/lib/video-job";
 
 type Category = "gallery" | "video" | "episode";
@@ -327,21 +328,22 @@ function VideoGenModal({
   onCreated: () => void;
   notify: (msg: string) => void;
 }) {
-  const [prompt, setPrompt] = useState("");
+  const [draft, setDraft] = useState<VideoDraft>(emptyVideoDraft);
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState<"idle" | "polling" | "done" | "error">("idle");
   const [message, setMessage] = useState("");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
   async function start() {
-    if (!prompt.trim()) {
-      notify("请描述视频画面");
+    const invalid = videoDraftError(draft);
+    if (invalid) {
+      notify(invalid);
       return;
     }
     setBusy(true);
     setPhase("polling");
     setMessage("已提交任务，等待生成…");
-    const result = await runVideoJob(prompt.trim(), setMessage);
+    const result = await runVideoJob(draft, setMessage);
     if (result.ok) {
       setVideoUrl(result.url);
       setPhase("done");
@@ -355,13 +357,14 @@ function VideoGenModal({
 
   async function publishAsVideo() {
     if (!videoUrl) return;
+    const title = draft.prompt.trim().slice(0, 40);
     const res = await fetch("/api/showcase", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         category: "video",
-        title: prompt.trim().slice(0, 40),
-        description: prompt.trim().slice(0, 120),
+        title,
+        description: draft.prompt.trim().slice(0, 120),
         media: videoUrl,
         published: true,
       }),
@@ -377,12 +380,7 @@ function VideoGenModal({
   return (
     <Modal title="AI 生成视频" onClose={onClose}>
       <div className="space-y-3">
-        <textarea
-          className={cx(inputCls, "h-24 resize-none")}
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="描述视频画面与风格，例如：城市夜景延时摄影，车流灯光流动，4K 质感"
-        />
+        <VideoComposer draft={draft} onChange={setDraft} disabled={busy} />
         {phase === "polling" && <p className="text-sm text-indigo-300">{message}</p>}
         {phase === "error" && <p className="text-sm text-amber-400">{message}</p>}
         {phase === "done" && videoUrl && (
@@ -407,7 +405,8 @@ function VideoGenModal({
           )}
         </div>
         <p className="text-[11px] leading-5 text-zinc-600">
-          视频生成走异步任务（按 VIDEO_* 环境变量指向的服务适配）；未配置时此按钮会提示服务未启用。直接提供视频文件时请用「素材库」上传。
+          支持文生视频、首尾帧与图片参考（按 VIDEO_* 环境变量指向的服务适配）；首尾帧 / 参考图从素材库选择时，
+          需要「系统设置」里配好站点地址。未配置服务时此按钮会提示服务未启用。
         </p>
       </div>
     </Modal>

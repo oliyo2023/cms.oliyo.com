@@ -1,7 +1,7 @@
 import { currentUserFromRequest, fail, json } from "@/lib/api";
 import { chatOnce } from "@/lib/ai";
 import { recordUsage, usageThisMonth } from "@/lib/repos/quota";
-import { AUDIENCES, TONES, buildKeywordMessages, parseKeywords, type Audience, type Tone } from "@/lib/prompts";
+import { AUDIENCES, KEYWORD_COUNT, TONES, buildKeywordMessages, parseStringList, type Audience, type Tone } from "@/lib/prompts";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
 
   try {
     const raw = await chatOnce(buildKeywordMessages({ seed, tone, audience }), { maxTokens: 600 });
-    const keywords = parseKeywords(raw);
+    const keywords = parseStringList(raw, KEYWORD_COUNT * 2);
     if (keywords.length === 0) return fail(502, "未能生成关键词，请重试");
     await recordUsage(user.id, "text_chars", raw.length);
     return json({ ok: true, keywords });

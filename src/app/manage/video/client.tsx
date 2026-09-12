@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ExternalLink, Loader2, Play, Save, Sparkles, Upload } from "lucide-react";
-import { btnGhost, btnPrimary, cx, inputCls } from "@/components/ui";
+import { btnGhost, btnPrimary, cx } from "@/components/ui";
+import { emptyVideoDraft, VideoComposer, videoDraftError, type VideoDraft } from "@/components/video-composer";
 import { runVideoJob } from "@/lib/video-job";
 
 export type RecentVideo = { id: string; url: string; createdAt: number };
@@ -68,7 +69,7 @@ function VideoCard({
 
 export default function VideoClient({ recent, configured }: { recent: RecentVideo[]; configured: boolean }) {
   const router = useRouter();
-  const [prompt, setPrompt] = useState("");
+  const [draft, setDraft] = useState<VideoDraft>(emptyVideoDraft);
   const [phase, setPhase] = useState<"idle" | "running" | "done" | "error">("idle");
   const [message, setMessage] = useState("");
   const [results, setResults] = useState<Array<RecentVideo & { prompt: string }>>([]);
@@ -81,20 +82,23 @@ export default function VideoClient({ recent, configured }: { recent: RecentVide
   };
 
   async function generate() {
-    const text = prompt.trim();
-    if (!text) {
-      flash("请先描述要生成的视频画面");
+    const invalid = videoDraftError(draft);
+    if (invalid) {
+      flash(invalid);
       return;
     }
     setPhase("running");
     setMessage("已提交任务，等待生成…");
-    const result = await runVideoJob(text, setMessage);
+    const result = await runVideoJob(draft, setMessage);
     if (!result.ok) {
       setPhase("error");
       setMessage(result.message);
       return;
     }
-    setResults((prev) => [{ id: `local-${Date.now()}`, url: result.url, createdAt: Date.now(), prompt: text }, ...prev]);
+    setResults((prev) => [
+      { id: `local-${Date.now()}`, url: result.url, createdAt: Date.now(), prompt: draft.prompt.trim() },
+      ...prev,
+    ]);
     setPhase("done");
     setMessage("生成完成");
   }
@@ -128,15 +132,7 @@ export default function VideoClient({ recent, configured }: { recent: RecentVide
   return (
     <div className="grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
       <section className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
-        <div>
-          <label className="mb-1 block text-xs text-zinc-400">画面描述 *</label>
-          <textarea
-            className={cx(inputCls, "h-28 resize-none")}
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="例如：城市夜景延时摄影，车流灯光流动，镜头缓慢推近，4K 质感"
-          />
-        </div>
+        <VideoComposer draft={draft} onChange={setDraft} disabled={running} />
         {running ? (
           <button className={cx(btnGhost, "w-full")} disabled>
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -154,7 +150,8 @@ export default function VideoClient({ recent, configured }: { recent: RecentVide
           </p>
         )}
         <p className="text-[11px] leading-5 text-zinc-600">
-          单条视频消耗 1 次视频配额；任务为异步排队，完成后可直接发布或先存草稿。
+          单条视频消耗 1 次视频配额；任务为异步排队，完成后可直接发布或先存草稿。首尾帧 / 参考图从素材库选择时，
+          需要「系统设置」里配好站点地址，视频服务才能抓取到该图片。
         </p>
       </section>
 

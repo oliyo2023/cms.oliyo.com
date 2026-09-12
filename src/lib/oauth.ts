@@ -26,12 +26,6 @@ export type OAuthProfile = {
   avatarUrl: string | null;
 };
 
-/** 回调 URL 基址：固定配置，绝不从 Host 头推导（防回调劫持）。 */
-export function siteUrl(req: Request, fallback: string | undefined): string {
-  if (fallback) return fallback.replace(/\/$/, "");
-  return new URL(req.url).origin;
-}
-
 /** 登录后跳转：仅允许站内相对路径，防 open redirect。 */
 export function safeNext(raw: string | null): string {
   if (raw && raw.startsWith("/") && !raw.startsWith("//") && !raw.includes("\\")) return raw;

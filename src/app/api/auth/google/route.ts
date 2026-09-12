@@ -1,5 +1,6 @@
 import { resolveVar } from "@/lib/config";
-import { codeChallengeS256, issueOAuthState, newCodeVerifier, safeNext, siteUrl } from "@/lib/oauth";
+import { codeChallengeS256, issueOAuthState, newCodeVerifier, safeNext } from "@/lib/oauth";
+import { siteUrl } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 

@@ -25,7 +25,7 @@ export const SETTINGS_FIELDS: FieldSpec[] = [
   { name: "SITE_DESCRIPTION", label: "站点描述", secret: false, hint: "首页 meta description 与社交分享描述，建议 60-120 字" },
   { name: "SITE_KEYWORDS", label: "关键词", secret: false, hint: "英文逗号分隔；留空则不输出 keywords" },
   { name: "SITE_OG_IMAGE", label: "社交分享图", secret: false, hint: "绝对 URL（https://…），建议 1200×630；留空则用纯文本卡片" },
-  { name: "SITE_URL", label: "站点地址", secret: false, hint: "canonical 基址，同时用于 sitemap、分享图绝对化与 OAuth 回调" },
+  { name: "SITE_URL", label: "站点地址", secret: false, hint: "canonical 基址，同时用于 sitemap、分享图绝对化、OAuth 回调，以及视频生成引用素材库图片（须为外部可访问的绝对地址）" },
   {
     name: "SITE_INDEXABLE",
     label: "搜索引擎收录",

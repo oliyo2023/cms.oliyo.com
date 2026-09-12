@@ -41,6 +41,9 @@ function rewriteSample(src: string): string {
   return `深度改写版：${head}…… 在保留原意的前提下调整了句式与段落结构，使表达更精炼。${" ".repeat(1)}` + "（stub 输出，正式环境由 LLM 完成。）";
 }
 
+/** 最近创建的 stub 视频任务；查询时回带，便于断言 mode / 素材确实传到了服务端。 */
+let lastJob: unknown = null;
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://127.0.0.1:${PORT}`);
   if (!url.pathname.startsWith("/v1/")) {
@@ -63,7 +66,12 @@ const server = http.createServer(async (req, res) => {
   const topic = (userMsg.match(/(?:^|\n)主题[:：]\s*([^\n]+)/)?.[1] ?? userMsg.split("\n")[0]).slice(0, 40);
   const isDrama = userMsg.includes("集数：");
   const isDramaIdeas = systemMsg.includes("短剧选题策划");
-  const isKeywords = userMsg.includes("输出示例：[");
+  const isKeywords = systemMsg.includes("新媒体选题策划");
+  const isVideoPrompt = systemMsg.includes("AI 视频提示词工程师");
+  const videoPromptsSample = JSON.stringify([
+    "雨后的未来城市街道，霓虹倒映在积水里，银色跑车缓慢驶过，低角度跟拍后缓缓拉远，写实光影，冷暖对比",
+    "黄昏的旧书店，女孩抽出泛黄相册轻轻翻开，镜头从书脊之间缓慢推向侧脸，暖色调，胶片颗粒",
+  ]);
   const dramaIdeasSample = JSON.stringify([
     "外卖员意外拿到豪门遗嘱，每集一个反转",
     "实习医生发现全院病历造假，越查越深",
@@ -112,11 +120,13 @@ const server = http.createServer(async (req, res) => {
     ? drama
     : isDramaIdeas
       ? dramaIdeasSample
-      : isKeywords
-        ? keywordsSample
-        : isRewrite
-          ? rewriteSample(userMsg)
-          : sampleArticle(topic || userMsg);
+      : isVideoPrompt
+        ? videoPromptsSample
+        : isKeywords
+          ? keywordsSample
+          : isRewrite
+            ? rewriteSample(userMsg)
+            : sampleArticle(topic || userMsg);
 
   if (url.pathname === "/v1/images/generations") {
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -153,13 +163,35 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === "/v1/videos" && req.method === "POST") {
+    // 对齐 Agnes：按 mode 校验素材，让 E2E 能真正覆盖 keyframe / reference 两条输入路径。
+    const mode = String(body.mode ?? "text");
+    const firstFrame = body.first_frame;
+    const lastFrame = body.last_frame;
+    const images = body.images;
+    if (mode === "keyframe" && !firstFrame && !lastFrame) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ detail: "first_frame and last_frame are both missing" }));
+      return;
+    }
+    if (mode === "reference" && (!Array.isArray(images) || images.length === 0)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ detail: "images is required" }));
+      return;
+    }
+    lastJob = { prompt: String(body.prompt ?? ""), mode, firstFrame, lastFrame, images };
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ id: "stub-video-1" }));
+    res.end(JSON.stringify({ id: "stub-video-1", video_id: "stub-video-1", status: "queued" }));
     return;
   }
   if (url.pathname.startsWith("/v1/videos/")) {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ status: "done", url: "https://example.com/stub.mp4" }));
+    res.end(
+      JSON.stringify({
+        status: "completed",
+        metadata: { url: "https://example.com/stub.mp4" },
+        stubJob: lastJob,
+      }),
+    );
     return;
   }
 
