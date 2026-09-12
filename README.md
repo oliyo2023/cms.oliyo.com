@@ -207,10 +207,11 @@ gh secret set CLOUDFLARE_ACCOUNT_ID --body "cf27b7d24f93d064d112620267c93645"
 
 ### 验证 token 可用
 
-先单测 token 本身（官方探测接口，不消耗配额、不改动资源）：
+先单测 token 本身（**用账户级端点**；账户级/账户拥有的 token 走 `/user/tokens/verify` 会返回
+`401 Invalid API Token`，实测如此）：
 
 ```bash
-curl -s "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+curl -s "https://api.cloudflare.com/client/v4/accounts/cf27b7d24f93d064d112620267c93645/tokens/verify" \
   --header "Authorization: Bearer <token>"
 # 期望：{"result":{"id":"…","status":"active"},"success":true,…}
 ```
@@ -224,6 +225,28 @@ curl -s "https://api.cloudflare.com/client/v4/user/tokens/verify" \
 | `Authentication error`（解析 D1 时） | token 缺 D1 权限 | 回到 token 编辑页补 **D1 → Edit** |
 | R2 相关 `do not have permission` | 桶不属于该 token 的账户 | 确认两个 R2 桶都在 `cf27b7d24…` 账户下 |
 | `account_id` 相关 / 多账户歧义 | 未设 `CLOUDFLARE_ACCOUNT_ID` | 补上该 secret |
+| `Populating remote R2 incremental cache` 写入失败 | OpenNext 用 `unstable_startWorker({remote:true})` **远程绑定**写缓存桶，该路径与 REST 写权限是两回事 | 见下 |
+
+#### 已知坑：OpenNext 的远程缓存回填
+
+`wrangler deploy` 会转发给 `opennextjs-cloudflare deploy`，后者在部署前用
+`unstable_startWorker({ remote: true })` 起一个**远程绑定**会话，把
+`.open-next/cache/*.cache` 写入 `NEXT_INC_CACHE_R2_BUCKET`。这一步与「用 REST API 写 R2」不是同一套鉴权路径，
+**即使 REST 写桶成功也可能失败**（实测：本机 OAuth 登录与 API token 两种凭据都以
+`Failed to populate remote R2 bucket … after 15 attempts` 收场）。
+
+可用规避手段（任一）：
+
+```bash
+# ① 跳过回填：删掉构建产物里的缓存目录再部署（缓存会在运行时按需生成）
+rm -rf .open-next/cache && pnpm exec wrangler deploy
+
+# ② 改走 rclone：需要 R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / CF_ACCOUNT_ID
+pnpm exec opennextjs-cloudflare deploy --rclone
+```
+
+> 排查顺序建议：先看报错是否出在 `Populating` 阶段；若是，**不要**先去怀疑 token 权限。
+> 也留意 `wrangler … --dry-run` 走不到这一步，因此 dry-run 全绿不代表能部署成功。
 
 ### 首次部署后的一次性设置
 
