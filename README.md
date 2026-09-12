@@ -167,14 +167,63 @@ pnpm exec wrangler d1 execute ai-wechat-cms --remote \
 > 该 D1 原先属于早期 `ai-wechat-cms` 应用，其表结构与本项目不兼容，已清理后重新迁移。
 > 旧表结构与数据备份在 `dev-data/d1-backup/`（不入库）。
 
-### CI 前置：配置仓库 secrets
+### CI 前置：申请 `CLOUDFLARE_API_TOKEN`
 
-Settings → Secrets and variables → Actions：
+`wrangler login` 是交互式流程，CI 里用不了，必须改用 API token（官方文档：
+<https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/>）。
 
-| Secret | 用途 |
+1. 打开**账户级 API Tokens**：<https://dash.cloudflare.com/?to=/:account/api-tokens>
+   （用账户级 token 而非个人 token：它不属于某个用户，换人不失效）
+2. **Create Token** → 在 **Permission policies** 里打开 **Custom** 下拉，选模板 **Edit Cloudflare Workers**
+3. **账户资源**选 `Oliyo@qq.com's Account`（即 `cf27b7d24f93d064d112620267c93645`）；
+   区资源可清空——本仓库 `wrangler.jsonc` 未声明 `routes`，不管理自定义域
+4. **务必补一条模板没有的权限**：
+
+   | 权限 | 作用域 | 为什么需要 |
+   | --- | --- | --- |
+   | **D1 → Edit** | Account | `wrangler.jsonc` 绑定了 D1 库 `ai-wechat-cms`，而 `Edit Cloudflare Workers` 模板**不含任何 D1 权限** |
+
+5. 命名（如 `github-actions-deploy`）→ Continue to summary → **Create Token**
+6. **立刻复制** secret（只显示一次，`cfut_` 前缀）→ 存成仓库 secret（见下）
+
+模板已自带的权限，无需手工勾选：Workers Scripts Write、Workers R2 Storage Write（两个 R2 桶需要）、
+Account Settings Read、Workers KV Storage Write、Workers Tail Read。
+
+### 配置仓库 secrets
+
+Settings → Secrets and variables → Actions → New repository secret：
+
+| Secret | 值 |
 | --- | --- |
-| `CLOUDFLARE_API_TOKEN` | 部署凭据，需 Workers Scripts:Edit、D1:Edit、R2:Edit 权限 |
-| `CLOUDFLARE_ACCOUNT_ID` | 目标账户（`cf27b7d24f93d064d112620267c93645`） |
+| `CLOUDFLARE_API_TOKEN` | 上一步复制的 token |
+| `CLOUDFLARE_ACCOUNT_ID` | `cf27b7d24f93d064d112620267c93645` |
+
+用 `gh` CLI 一条命令写入（本机 `gh` 需已登录）：
+
+```bash
+gh secret set CLOUDFLARE_API_TOKEN --body "<粘贴 token>"
+gh secret set CLOUDFLARE_ACCOUNT_ID --body "cf27b7d24f93d064d112620267c93645"
+```
+
+### 验证 token 可用
+
+先单测 token 本身（官方探测接口，不消耗配额、不改动资源）：
+
+```bash
+curl -s "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+  --header "Authorization: Bearer <token>"
+# 期望：{"result":{"id":"…","status":"active"},"success":true,…}
+```
+
+再跑真实链路：Actions 页面 → **Deploy to Cloudflare** → Run workflow。
+
+### 部署失败对照
+
+| 报错关键字 | 原因 | 处理 |
+| --- | --- | --- |
+| `Authentication error`（解析 D1 时） | token 缺 D1 权限 | 回到 token 编辑页补 **D1 → Edit** |
+| R2 相关 `do not have permission` | 桶不属于该 token 的账户 | 确认两个 R2 桶都在 `cf27b7d24…` 账户下 |
+| `account_id` 相关 / 多账户歧义 | 未设 `CLOUDFLARE_ACCOUNT_ID` | 补上该 secret |
 
 ### 首次部署后的一次性设置
 
@@ -197,6 +246,9 @@ pnpm run deploy     # opennextjs-cloudflare build && wrangler deploy
 
 > 注意：不要用 `pnpm deploy`——那是 pnpm 内置的 workspace 部署命令，会静默走错分支。
 > 仓库脚本一律用 `pnpm run <script>` 调用。
+
+> 区分两类凭据：`CLOUDFLARE_API_TOKEN` 是给 **CI 部署**用的 Cloudflare 账户凭据；
+> 下面 `wrangler secret put` 写入的是 **Worker 运行时** 的密钥（如 `AGNES_API_KEY`），二者互不相干。
 
 敏感变量用 `wrangler secret put <NAME>` 配置；`wrangler.jsonc` 的 `vars` 只放非敏感项。
 
