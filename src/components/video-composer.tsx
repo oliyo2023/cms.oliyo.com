@@ -24,8 +24,8 @@ const MAX_IMAGES = 5;
 
 const MODES: Array<{ value: VideoMode; label: string; hint: string }> = [
   { value: "text", label: "文生视频", hint: "只用提示词生成画面" },
-  { value: "keyframe", label: "首尾帧", hint: "给定首帧 / 尾帧，成片从它开始或结束（至少一张）" },
-  { value: "reference", label: "图片参考", hint: "以参考图的角色、风格为准，画面可重新构图（最多 5 张）" },
+  { value: "keyframe", label: "首尾帧", hint: "给定首帧 / 尾帧，成片从它开始或结束（至少一张，可取自素材库或 AI 生成）" },
+  { value: "reference", label: "图片参考", hint: "以参考图的角色、风格为准，画面可重新构图（最多 5 张，可取自素材库或 AI 生成）" },
 ];
 
 /** 提交前的本地校验；返回 null 表示可以提交。服务端会再校验一次。 */
@@ -179,6 +179,7 @@ export function VideoComposer({
       {picking && (
         <MediaPicker
           kind="image"
+          aiGenerate
           onPick={(ref) => {
             if (picking === "first") patch({ firstFrame: ref });
             else if (picking === "last") patch({ lastFrame: ref });

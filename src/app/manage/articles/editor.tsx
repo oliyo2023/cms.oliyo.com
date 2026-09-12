@@ -703,7 +703,7 @@ function wxImageUrl(src: string, caption?: string): string {
   return `<figure style="margin:14px 0;"><img src="${src}" style="width:100%;border-radius:8px;display:block;" alt="${escCap}"/><figcaption style="text-align:center;font-size:13px;color:#a1a1aa;margin-top:6px;">${escCap}</figcaption></figure>`;
 }
 
-/** 插图弹窗：AI 生成 / 素材库 / 外链，三条路都汇成 URL 插入。 */
+/** 插图弹窗：AI 生成 / 素材库 / 外链，三条路都汇成 URL 插入。AI 生成与素材库复用 MediaPicker。 */
 function ImageInsertModal({
   onInsert,
   onClose,
@@ -712,39 +712,9 @@ function ImageInsertModal({
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<"ai" | "library" | "url">("ai");
-  const [prompt, setPrompt] = useState("");
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [preview, setPreview] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const [url, setUrl] = useState("");
-
-  async function generate() {
-    const desc = prompt.trim();
-    if (!desc) {
-      setError("请先描述画面");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    try {
-      const res = await fetch("/api/ai/image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: desc, note: `文章配图：${desc.slice(0, 40)}` }),
-      });
-      const data = (await res.json()) as { image?: { url?: string }; error?: string };
-      if (!res.ok || !data.image?.url) {
-        setError(data.error ?? "生成失败，请重试");
-        return;
-      }
-      setPreview(data.image.url);
-    } catch {
-      setError("网络错误，请重试");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   function insertExternal() {
     const src = url.trim();
@@ -778,48 +748,16 @@ function ImageInsertModal({
       <div className="space-y-4">
         <div className="flex gap-1 rounded-lg bg-zinc-950/70 p-1">{[tabBtn("ai", "AI 生成"), tabBtn("library", "素材库"), tabBtn("url", "外链")]}</div>
 
-        {tab === "ai" && (
+        {(tab === "ai" || tab === "library") && (
           <div className="space-y-3">
-            <div>
-              <label htmlFor="ai-img-prompt" className="mb-1.5 block text-sm text-zinc-300">
-                画面描述
-              </label>
-              <textarea
-                id="ai-img-prompt"
-                className={cx(inputCls, "h-20 resize-none")}
-                placeholder="例如：公众号封面配图，城市夜景延时摄影，霓虹光斑，扁平插画风"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-              />
-              <p className="mt-1.5 text-xs text-zinc-500">生成结果自动存入素材库，消耗图片生成配额。</p>
-            </div>
-            {preview && (
-              <div>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={preview} alt="生成预览" className="max-h-56 w-full rounded-lg bg-black object-contain" />
-              </div>
-            )}
-            {error && <p className="text-sm text-red-400">{error}</p>}
-            <div className="flex justify-end gap-2">
-              <button className={btnGhost} disabled={busy} onClick={() => void generate()}>
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Sparkles className="h-4 w-4" aria-hidden="true" />}
-                {busy ? "生成中…" : "生成"}
-              </button>
-              <button className={btnPrimary} disabled={busy || !preview} onClick={() => preview && onInsert(preview)}>
-                插入
-              </button>
-            </div>
-          </div>
-        )}
-
-        {tab === "library" && (
-          <div className="space-y-3">
-            <p className="text-sm text-zinc-400">选择素材库中已上传 / 已生成的图片。</p>
+            <p className="text-sm text-zinc-400">
+              {tab === "ai" ? "描述画面生成配图，结果自动存入素材库。" : "选择素材库中已上传 / 已生成的图片。"}
+            </p>
             {error && <p className="text-sm text-red-400">{error}</p>}
             <div className="flex justify-end">
               <button className={btnPrimary} onClick={() => setPicking(true)}>
-                <ImageIcon className="h-4 w-4" aria-hidden="true" />
-                浏览素材库
+                {tab === "ai" ? <Sparkles className="h-4 w-4" aria-hidden="true" /> : <ImageIcon className="h-4 w-4" aria-hidden="true" />}
+                {tab === "ai" ? "生成 / 选择图片" : "浏览素材库"}
               </button>
             </div>
           </div>
@@ -852,6 +790,8 @@ function ImageInsertModal({
       {picking && (
         <MediaPicker
           kind="image"
+          aiGenerate
+          initialTab={tab === "ai" ? "ai" : "library"}
           onPick={(ref) => onInsert(ref.startsWith("r2://") ? `/media/${ref.slice(5)}` : ref)}
           onClose={() => setPicking(false)}
         />
