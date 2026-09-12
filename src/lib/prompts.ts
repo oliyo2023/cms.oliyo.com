@@ -143,6 +143,25 @@ export function parseFormatBlocks(raw: string): FormatBlock[] {
 export type DramaGenre = "反转爽剧" | "悬疑" | "甜宠" | "职场" | "家庭" | "科幻" | "年代";
 export const DRAMA_GENRES: DramaGenre[] = ["反转爽剧", "悬疑", "甜宠", "职场", "家庭", "科幻", "年代"];
 
+export const DRAMA_IDEA_COUNT = 6;
+
+/** 「短剧生成」的题材/剧情设定候选：按所选类型与已填设定方向给一批可直接开写的设定。 */
+export function buildDramaIdeaMessages(opts: { genre: DramaGenre; seed?: string }): ChatMessage[] {
+  const system =
+    "你是中文短剧选题策划。只输出 JSON 字符串数组，无任何解释、编号或 markdown 代码块标记。" +
+    `给出 ${DRAMA_IDEA_COUNT} 条可直接开写的短剧「题材 / 剧情设定」候选：每条 15-40 字，` +
+    "含主角身份、核心冲突与钩子（如「外卖员意外拿到豪门遗嘱，每集一个反转」），彼此不重复。";
+  const user = [
+    `类型：${opts.genre}`,
+    opts.seed?.trim() ? `在以下已有设定方向上拓展：${opts.seed.trim()}` : "方向不限：给该类型下当下有爆款潜质的设定。",
+    '输出示例：["外卖员意外拿到豪门遗嘱，每集一个反转", "实习医生发现全院病历造假，越查越深"]',
+  ].join("\n");
+  return [
+    { role: "system", content: system },
+    { role: "user", content: user },
+  ];
+}
+
 export type DramaPlan = {
   title: string;
   logline: string;
@@ -253,7 +272,7 @@ export function buildKeywordMessages(opts: { seed?: string; tone: Tone; audience
   ];
 }
 
-/** 宽松解析：优先取 JSON 数组，失败则按行拆分（清掉编号/引号/项目符号）。 */
+/** 宽松解析：优先取 JSON 数组；输出成「每行一个数组」时逐段解析拼接；最后按行拆分（清掉编号/引号/项目符号）。 */
 export function parseKeywords(raw: string): string[] {
   const text = raw.trim();
   const start = text.indexOf("[");
@@ -266,7 +285,19 @@ export function parseKeywords(raw: string): string[] {
         if (out.length) return out.slice(0, KEYWORD_COUNT * 2);
       }
     } catch {
-      // 落到按行拆分
+      const segments = text.match(/\[[^[\]]*\]/g);
+      if (segments) {
+        const out: string[] = [];
+        for (const segment of segments) {
+          try {
+            const arr: unknown = JSON.parse(segment);
+            if (Array.isArray(arr)) out.push(...arr.map((v) => String(v ?? "").trim()).filter(Boolean));
+          } catch {
+            // 坏段跳过，整体仍走按行拆分兜底
+          }
+        }
+        if (out.length) return out.slice(0, KEYWORD_COUNT * 2);
+      }
     }
   }
   return text

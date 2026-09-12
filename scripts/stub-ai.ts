@@ -58,10 +58,20 @@ const server = http.createServer(async (req, res) => {
   }
   const messages = (body.messages ?? []) as Array<{ role: string; content: string }>;
   const userMsg = [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
+  const systemMsg = messages.find((m) => m.role === "system")?.content ?? "";
   const isRewrite = userMsg.includes("原文如下") || userMsg.includes("改写");
   const topic = (userMsg.match(/(?:^|\n)主题[:：]\s*([^\n]+)/)?.[1] ?? userMsg.split("\n")[0]).slice(0, 40);
   const isDrama = userMsg.includes("集数：");
+  const isDramaIdeas = systemMsg.includes("短剧选题策划");
   const isKeywords = userMsg.includes("输出示例：[");
+  const dramaIdeasSample = JSON.stringify([
+    "外卖员意外拿到豪门遗嘱，每集一个反转",
+    "实习医生发现全院病历造假，越查越深",
+    "被退婚当天，她接手了负债累累的老厂",
+    "保安夜班撞见老板的秘密交易",
+    "被裁当天中了大奖，却不敢告诉家人",
+    "替身演员意外成了替身新娘",
+  ]);
   const keywordsSample = JSON.stringify([
     "创作者如何用 AI 省下每天两小时",
     "被算法投喂三年后我重新学会了阅读",
@@ -100,11 +110,13 @@ const server = http.createServer(async (req, res) => {
   });
   const full = isDrama
     ? drama
-    : isKeywords
-      ? keywordsSample
-      : isRewrite
-        ? rewriteSample(userMsg)
-        : sampleArticle(topic || userMsg);
+    : isDramaIdeas
+      ? dramaIdeasSample
+      : isKeywords
+        ? keywordsSample
+        : isRewrite
+          ? rewriteSample(userMsg)
+          : sampleArticle(topic || userMsg);
 
   if (url.pathname === "/v1/images/generations") {
     res.writeHead(200, { "Content-Type": "application/json" });

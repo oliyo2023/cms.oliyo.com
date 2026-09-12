@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clapperboard, Loader2, Play, Save, Sparkles, Video } from "lucide-react";
+import { Clapperboard, Loader2, Play, Save, Sparkles, Video, WandSparkles } from "lucide-react";
 import { btnGhost, btnPrimary, cx, inputCls } from "@/components/ui";
 import { postSse } from "@/lib/sse-client";
 import { DRAMA_GENRES, parseDramaPlan, type DramaPlan } from "@/lib/prompts";
@@ -51,6 +51,9 @@ export default function DramaPage() {
   const [episodes, setEpisodes] = useState("6");
   const [shotsPerEpisode, setShotsPerEpisode] = useState("4");
   const [style, setStyle] = useState("");
+  const [ideas, setIdeas] = useState<string[]>([]);
+  const [ideaBusy, setIdeaBusy] = useState(false);
+  const [ideaErr, setIdeaErr] = useState("");
 
   const [plan, setPlan] = useState<DramaPlan | null>(null);
   const [state, setState] = useState<"idle" | "running" | "done" | "error">("idle");
@@ -114,6 +117,28 @@ export default function DramaPage() {
     abortRef.current?.abort();
   }
 
+  async function genIdeas() {
+    setIdeaBusy(true);
+    setIdeaErr("");
+    try {
+      const res = await fetch("/api/ai/drama-ideas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seed: idea.trim() || undefined, genre }),
+      });
+      const data = (await res.json()) as { ideas?: string[]; error?: string };
+      if (!res.ok || !data.ideas?.length) {
+        setIdeaErr(data.error ?? "生成失败，请重试");
+        return;
+      }
+      setIdeas(data.ideas);
+    } catch {
+      setIdeaErr("网络错误，请重试");
+    } finally {
+      setIdeaBusy(false);
+    }
+  }
+
   async function saveAsDraft() {
     if (!plan) return;
     setSaving(true);
@@ -168,13 +193,46 @@ export default function DramaPage() {
       <div className="grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
         <section className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
           <div>
-            <label className="mb-1 block text-xs text-zinc-400">题材 / 剧情设定 *</label>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <label className="block text-xs text-zinc-400">题材 / 剧情设定 *</label>
+              <button
+                type="button"
+                className={cx(btnGhost, "px-2 py-0.5 text-[11px]")}
+                disabled={ideaBusy}
+                onClick={() => void genIdeas()}
+                title="按当前类型与已填设定方向，生成一批候选题材/剧情设定"
+              >
+                {ideaBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <WandSparkles className="h-3 w-3" />}
+                {ideaBusy ? "生成中…" : "AI 生成设定"}
+              </button>
+            </div>
             <textarea
               className={cx(inputCls, "h-20 resize-none")}
               value={idea}
               onChange={(e) => setIdea(e.target.value)}
               placeholder="例如：外卖员意外拿到豪门遗嘱，每集一个反转"
             />
+            {ideaErr && <p className="mt-1 text-[11px] text-red-400">{ideaErr}</p>}
+            {ideas.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {ideas.map((k, i) => (
+                  <button
+                    key={`${i}-${k}`}
+                    type="button"
+                    onClick={() => setIdea(k)}
+                    title="点击填入设定"
+                    className={cx(
+                      "rounded-lg border px-2 py-1 text-left text-[11px] leading-4 transition",
+                      idea.trim() === k
+                        ? "border-indigo-500 bg-indigo-600/15 text-indigo-300"
+                        : "border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:border-indigo-600/60 hover:text-zinc-200",
+                    )}
+                  >
+                    {k}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <label className="mb-1 block text-xs text-zinc-400">类型</label>
