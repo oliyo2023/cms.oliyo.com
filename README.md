@@ -12,7 +12,7 @@ AI 内容创作与作品展示平台：AI 生成图文、智能洗稿、公众�
 **创作台（登录后）**
 
 - AI 图文：生成文章 / 配图 / 视频，SSE 流式输出（主题支持「AI 生成关键词」候选）
-- 短剧生成：题材 / 剧情设定 → 分集剧本 + 逐镜头提示词 → 逐镜头生成视频（设定支持「AI 生成设定」候选）
+- 短剧生成：题材 → 分集剧本（人物设定 + 逐镜头台词）→ 角色设定图 → 逐镜头生成（有设定图的角色自动走图片参考，跨镜头保持同一形象）→ 一次存下整集镜头序列；公开站单集按镜头连播并挂台词字幕
 - AI 视频：画面描述支持「AI 生成提示词」候选；生成模式含文生视频、首尾帧控制、图片参考（首尾帧 / 参考图可取自素材库或 AI 生成，素材库图片需配置 `SITE_URL`）
 - 智能洗稿、公众号排版（微信排版样式 `.wx-content`）
 - 素材库：R2 存储的图片 / 视频素材管理
@@ -283,7 +283,7 @@ pnpm run deploy     # opennextjs-cloudflare build && wrangler deploy
 src/app/            路由（公开站 / manage 管理端 / api）
 src/components/     共享组件（Modal、站点头尾、首页区块）
 src/lib/            auth / oauth / config / db(D1) / repos(Drizzle)
-drizzle/            迁移 SQL（0001 初始结构、0002 oauth_accounts）
+drizzle/            迁移 SQL（0001 初始结构、0002 oauth_accounts、0003 短剧镜头与角色设定）
 scripts/            本地迁移、种子、AI stub（E2E 用）、ship（提交推送）
 .omp/rules/         编码代理规则（auto-ship：收尾自动提交推送）
 ```

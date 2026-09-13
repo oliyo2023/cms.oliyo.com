@@ -93,13 +93,14 @@ export const series = sqliteTable(
     title: text("title").notNull(),
     description: text("description").notNull().default(""),
     cover: text("cover").notNull().default(""),
+    /** JSON：角色设定 [{ name, appearance, portrait }]，portrait 为 r2:// 或 https 引用。 */
+    cast: text("cast").notNull().default("[]"),
     sort: integer("sort").notNull().default(0),
     published: integer("published", { mode: "boolean" }).notNull().default(true),
     createdAt: integer("created_at").notNull(),
   },
   (t) => [index("series_pub_idx").on(t.published, t.sort)],
 );
-
 // ---------- showcase_items (画廊/视频/剧集单集) ----------
 export const showcaseItems = sqliteTable(
   "showcase_items",
@@ -110,6 +111,8 @@ export const showcaseItems = sqliteTable(
     description: text("description").notNull().default(""),
     media: text("media").notNull().default(""), // r2://<key> | https://...
     thumb: text("thumb").notNull().default(""),
+    /** JSON：多镜头序列 [{ shot, prompt, video, dialogue, cast }]；剧集单集用，media 为第一镜头的视频。 */
+    shots: text("shots").notNull().default("[]"),
     seriesId: text("series_id"),
     sort: integer("sort").notNull().default(0),
     published: integer("published", { mode: "boolean" }).notNull().default(true),

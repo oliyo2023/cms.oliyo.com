@@ -11,6 +11,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     title?: string;
     description?: string;
     cover?: string;
+    cast?: string;
     sort?: number;
     published?: boolean;
   };

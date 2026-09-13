@@ -32,6 +32,7 @@ export async function POST(req: Request) {
     description?: string;
     media?: string;
     thumb?: string;
+    shots?: string;
     seriesId?: string | null;
     sort?: number;
     published?: boolean;
@@ -51,6 +52,7 @@ export async function POST(req: Request) {
     description: body.description ?? "",
     media: body.media ?? "",
     thumb: body.thumb ?? "",
+    shots: body.shots ?? "[]",
     seriesId: body.seriesId ?? null,
     sort: body.sort ?? 0,
     published: body.published ?? true,

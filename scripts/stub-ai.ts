@@ -93,15 +93,19 @@ const server = http.createServer(async (req, res) => {
   const drama = JSON.stringify({
     title: "豪门遗嘱",
     logline: "外卖员意外拿到豪门遗嘱，每集一个反转。",
+    characters: [
+      { name: "陈默", appearance: "28 岁男性外卖员，寸头，皮肤偏黑，穿深蓝色冲锋衣，眼神倔强" },
+      { name: "林婉", appearance: "35 岁女性，齐肩黑发，高颧骨，穿米色风衣，神情冷淡" },
+    ],
     episodes: [
       {
         number: 1,
         title: "开篇",
         summary: "外卖员送单到豪宅，意外捡到遗嘱残页。",
         shots: [
-          { shot: 1, prompt: "近景，雨夜，外卖员站在豪宅门口" },
-          { shot: 2, prompt: "中景，客厅里老人写下遗嘱" },
-          { shot: 3, prompt: "特写，遗嘱残页露出签名" },
+          { shot: 1, prompt: "近景，陈默站在豪宅门口", cast: ["陈默"], dialogue: "这单送得也太远了。" },
+          { shot: 2, prompt: "中景，客厅里林婉写下遗嘱", cast: ["林婉"], dialogue: "" },
+          { shot: 3, prompt: "特写，遗嘱残页露出签名", cast: [], dialogue: "" },
         ],
       },
       {
@@ -109,9 +113,9 @@ const server = http.createServer(async (req, res) => {
         title: "反转",
         summary: "遗嘱署名竟是外卖员，众人震惊。",
         shots: [
-          { shot: 1, prompt: "近景，家族会议上众人窃语" },
-          { shot: 2, prompt: "特写，遗嘱落款放大" },
-          { shot: 3, prompt: "中景，外卖员推门而入" },
+          { shot: 1, prompt: "中景，陈默在家族会议上被围住", cast: ["陈默", "林婉"], dialogue: "你们都别拦着我。" },
+          { shot: 2, prompt: "特写，遗嘱落款放大", cast: [], dialogue: "" },
+          { shot: 3, prompt: "中景，陈默推门而入", cast: ["陈默"], dialogue: "遗嘱上写的是我的名字。" },
         ],
       },
     ],

@@ -6,8 +6,12 @@
  * 流程（作品展示的生成弹窗、短剧的逐镜头生成、AI 视频栏目），集中在这里避免三份漂移。
  */
 
-/** 轮询上限；超过即视为仍在排队，交由用户稍后在「历史记录」查看。 */
-const MAX_POLL_ATTEMPTS = 8;
+/**
+ * 轮询上限；超过即视为仍在排队，交由用户稍后在「历史记录」查看。
+ * 实测 5 秒成片约需 3.5-4 分钟（排队 + 推理），故给到 15 次 × 15s ≈ 3.75 分钟。
+ * 逐镜头批量生成时不能等这么久，调用方会传更短的 attempts（见 drama 页）。
+ */
+const MAX_POLL_ATTEMPTS = 15;
 /** 单次轮询间隔上限，服务端给的 pollMs 再大也不超过它。 */
 const MAX_POLL_MS = 15000;
 
@@ -33,7 +37,11 @@ function sleep(ms: number): Promise<void> {
   return promise;
 }
 
-export async function runVideoJob(spec: VideoJobSpec, onProgress?: (message: string) => void): Promise<VideoJobResult> {
+export async function runVideoJob(
+  spec: VideoJobSpec,
+  onProgress?: (message: string) => void,
+  opts?: { maxAttempts?: number },
+): Promise<VideoJobResult> {
   onProgress?.("已提交任务，等待生成…");
 
   let res: Response;
@@ -55,7 +63,8 @@ export async function runVideoJob(spec: VideoJobSpec, onProgress?: (message: str
   if (!res.ok || !data?.taskId) return { ok: false, message: data?.error ?? "提交失败" };
 
   const interval = Math.min(data.pollMs ?? MAX_POLL_MS, MAX_POLL_MS);
-  for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
+  const attempts = Math.min(opts?.maxAttempts ?? MAX_POLL_ATTEMPTS, MAX_POLL_ATTEMPTS);
+  for (let i = 0; i < attempts; i++) {
     await sleep(interval);
     let pollRes: Response;
     try {

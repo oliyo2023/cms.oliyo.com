@@ -2,44 +2,167 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clapperboard, Loader2, Play, Save, Sparkles, Video, WandSparkles } from "lucide-react";
+import { Clapperboard, ImagePlus, Loader2, Play, Save, Sparkles, UserRound, Video, WandSparkles } from "lucide-react";
 import { btnGhost, btnPrimary, cx, inputCls } from "@/components/ui";
 import { postSse } from "@/lib/sse-client";
 import { DRAMA_GENRES, parseDramaPlan, type DramaPlan } from "@/lib/prompts";
+import { buildPortraitPrompt, buildShotRequest, firstShotVideo, type EpisodeShot } from "@/lib/episode";
 import { runVideoJob } from "@/lib/video-job";
 
-function DramaShotRow({ epIdx, shot, onUrl }: { epIdx: number; shot: { shot: number; prompt: string }; onUrl: (key: string, url: string) => void }) {
-  const key = `${epIdx}-${shot.shot}`;
-  const [st, setSt] = useState<{ status: "idle" | "polling" | "done" | "error"; url: string; message: string }>({
-    status: "idle",
-    url: "",
-    message: "",
-  });
+/** 生成结果统一存 r2:// 引用（/api/ai/image 会落素材库并回 /media/<key>）。 */
+function toRef(url: string): string {
+  return url.startsWith("/media/") ? `r2://${url.slice("/media/".length)}` : url;
+}
 
+type ShotState = { status: "idle" | "polling" | "done" | "error"; video: string; message: string };
+
+/**
+ * 单个镜头行：提示词 + 台词 + 出场角色 → 生成视频。
+ * 出场角色有设定图时自动走 reference 模式（见 buildShotRequest），保证跨镜头人物一致。
+ */
+function DramaShotRow({
+  shot,
+  portraits,
+  state,
+  onState,
+}: {
+  shot: EpisodeShot;
+  portraits: Record<string, string>;
+  state: ShotState;
+  onState: (next: ShotState) => void;
+}) {
   async function start() {
-    setSt({ status: "polling", url: "", message: "已提交视频任务，等待生成…" });
-    const result = await runVideoJob({ prompt: shot.prompt }, (message) => setSt({ status: "polling", url: "", message }));
+    onState({ status: "polling", video: "", message: "已提交视频任务，等待生成…" });
+    const req = buildShotRequest(shot, portraits);
+    const result = await runVideoJob(req, (message) => onState({ status: "polling", video: "", message }));
     if (!result.ok) {
-      setSt({ status: "error", url: "", message: result.message });
+      onState({ status: "error", video: "", message: result.message });
       return;
     }
-    setSt({ status: "done", url: result.url, message: "" });
-    onUrl(key, result.url);
+    onState({ status: "done", video: result.url, message: "" });
   }
+
+  const missing = shot.cast.filter((name) => !portraits[name]);
 
   return (
     <div className="rounded-lg border border-zinc-800/70 bg-zinc-950/50 p-3">
       <div className="flex items-start gap-2">
         <span className="mt-0.5 shrink-0 rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400">镜头 {shot.shot}</span>
-        <p className="min-w-0 flex-1 text-xs leading-5 text-zinc-300">{shot.prompt || "（空镜头）"}</p>
-        <button className={cx(btnGhost, "shrink-0 px-2 py-1 text-xs")} disabled={st.status === "polling"} onClick={() => void start()}>
-          {st.status === "polling" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Video className="h-3.5 w-3.5" />}
-          {st.status === "polling" ? "生成中…" : st.status === "done" ? "重新生成" : "生成视频"}
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="text-xs leading-5 text-zinc-300">{shot.prompt || "（空镜头）"}</p>
+          {shot.dialogue && <p className="text-xs leading-5 text-indigo-300">台词：{shot.dialogue}</p>}
+          {shot.cast.length > 0 && (
+            <p className="text-[11px] text-zinc-500">
+              出场：{shot.cast.join("、")}
+              {missing.length > 0 && <span className="text-amber-500">（{missing.join("、")} 无设定图，本条按纯文生视频）</span>}
+            </p>
+          )}
+        </div>
+        <button className={cx(btnGhost, "shrink-0 px-2 py-1 text-xs")} disabled={state.status === "polling"} onClick={() => void start()}>
+          {state.status === "polling" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Video className="h-3.5 w-3.5" />}
+          {state.status === "polling" ? "生成中…" : state.status === "done" ? "重新生成" : "生成视频"}
         </button>
       </div>
-      {st.status === "polling" && <p className="mt-2 text-xs text-indigo-300">{st.message}</p>}
-      {st.status === "error" && <p className="mt-2 text-xs text-amber-400">{st.message}</p>}
-      {st.status === "done" && st.url && <video src={st.url} controls className="mt-2 w-full rounded-lg bg-black" />}
+      {state.status === "polling" && <p className="mt-2 text-xs text-indigo-300">{state.message}</p>}
+      {state.status === "error" && <p className="mt-2 text-xs text-amber-400">{state.message}</p>}
+      {state.status === "done" && state.video && <video src={state.video} controls className="mt-2 w-full rounded-lg bg-black" />}
+    </div>
+  );
+}
+
+/**
+ * 角色设定区：把人物表逐条生成「设定图」，供逐镜头 reference 引用。
+ * 设定图落素材库、与素材库同引用格式，可直接复用/替换。
+ */
+function CastPanel({
+  characters,
+  portraits,
+  busyName,
+  onPortrait,
+  onBusy,
+}: {
+  characters: DramaPlan["characters"];
+  portraits: Record<string, string>;
+  busyName: string;
+  onPortrait: (name: string, ref: string) => void;
+  onBusy: (name: string) => void;
+}) {
+  const [error, setError] = useState("");
+
+  async function genPortrait(name: string) {
+    const member = characters.find((c) => c.name === name);
+    if (!member) return;
+    onBusy(name);
+    setError("");
+    try {
+      const res = await fetch("/api/ai/image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: buildPortraitPrompt(member), note: `${name} 角色设定图` }),
+      });
+      const data = (await res.json()) as { image?: { url?: string }; error?: string };
+      const url = data.image?.url;
+      if (!res.ok || !url) {
+        setError(data.error ?? "设定图生成失败");
+        return;
+      }
+      onPortrait(name, toRef(url));
+    } catch {
+      setError("网络错误，请重试");
+    } finally {
+      onBusy("");
+    }
+  }
+
+  return (
+    <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+      <div className="flex items-center gap-2 text-sm text-zinc-300">
+        <UserRound className="h-4 w-4 text-indigo-400" />
+        角色设定（{characters.length}）
+      </div>
+      <p className="text-[11px] leading-5 text-zinc-600">
+        生成角色设定图后，该角色出场的镜头会自动以「图片参考」模式引用它，跨镜头保持同一张脸。
+      </p>
+      {error && <p className="text-xs text-red-400">{error}</p>}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {characters.map((c) => {
+          const portrait = portraits[c.name];
+          const busy = busyName === c.name;
+          return (
+            <div key={c.name} className="space-y-1.5">
+              <div className="relative overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
+                {portrait ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={portrait.startsWith("r2://") ? `/media/${portrait.slice(5)}` : portrait} alt={c.name} className="h-32 w-full object-cover" />
+                ) : (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void genPortrait(c.name)}
+                    className="flex h-32 w-full flex-col items-center justify-center gap-1 text-[11px] text-zinc-500 transition hover:text-zinc-300 disabled:opacity-50"
+                  >
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                    {busy ? "生成中…" : "AI 生成设定图"}
+                  </button>
+                )}
+              </div>
+              <div className="text-xs font-medium text-zinc-200">{c.name}</div>
+              <p className="line-clamp-2 text-[11px] leading-4 text-zinc-500">{c.appearance}</p>
+              {portrait && (
+                <button
+                  type="button"
+                  className={cx(btnGhost, "w-full px-2 py-1 text-[11px]")}
+                  disabled={busy}
+                  onClick={() => void genPortrait(c.name)}
+                >
+                  {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                  重新生成
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -61,11 +184,14 @@ export default function DramaPage() {
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState("");
-  const [shotUrls, setShotUrls] = useState<Record<string, string>>({});
+  const [portraits, setPortraits] = useState<Record<string, string>>({});
+  const [portraitBusy, setPortraitBusy] = useState("");
+  const [shots, setShots] = useState<Record<string, ShotState>>({});
   const abortRef = useRef<AbortController | null>(null);
 
   const epCount = Math.min(12, Math.max(3, Number(episodes) || 6));
   const shotCount = Math.min(8, Math.max(3, Number(shotsPerEpisode) || 4));
+  const shotKey = (epNumber: number, shot: number) => `${epNumber}-${shot}`;
 
   async function generate() {
     if (!idea.trim()) {
@@ -76,7 +202,8 @@ export default function DramaPage() {
     const ac = new AbortController();
     abortRef.current = ac;
     setPlan(null);
-    setShotUrls({});
+    setPortraits({});
+    setShots({});
     setError("");
     setSaveErr("");
     setState("running");
@@ -139,22 +266,36 @@ export default function DramaPage() {
     }
   }
 
+  /** 存草稿：角色设定进 series.cast，每集完整镜头序列进 shots（此前只存第一个镜头）。 */
   async function saveAsDraft() {
     if (!plan) return;
     setSaving(true);
     setSaveErr("");
     try {
+      const cast = plan.characters.map((c) => ({ ...c, portrait: portraits[c.name] ?? "" }));
       const sRes = await fetch("/api/series", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: plan.title, description: plan.logline, cover: "", sort: 0, published: false }),
+        body: JSON.stringify({
+          title: plan.title,
+          description: plan.logline,
+          cover: "",
+          cast: JSON.stringify(cast),
+          sort: 0,
+          published: false,
+        }),
       });
       const sData = (await sRes.json()) as { series?: { id: string }; error?: string };
       if (!sRes.ok || !sData.series) throw new Error(sData.error ?? "创建剧集失败");
       const seriesId = sData.series.id;
-      for (const epIdx of plan.episodes.keys()) {
-        const ep = plan.episodes[epIdx];
-        const media = ep.shots.map((s) => shotUrls[`${epIdx}-${s.shot}`]).find((u) => u) ?? "";
+      for (const ep of plan.episodes) {
+        const epShots: EpisodeShot[] = ep.shots.map((s) => ({
+          shot: s.shot,
+          prompt: s.prompt,
+          cast: s.cast,
+          dialogue: s.dialogue,
+          video: shots[shotKey(ep.number, s.shot)]?.video ?? "",
+        }));
         const eRes = await fetch("/api/showcase", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -162,7 +303,8 @@ export default function DramaPage() {
             category: "episode",
             title: ep.title,
             description: ep.summary,
-            media,
+            media: firstShotVideo(epShots),
+            shots: JSON.stringify(epShots),
             seriesId,
             sort: ep.number - 1,
             published: false,
@@ -183,11 +325,15 @@ export default function DramaPage() {
     }
   }
 
+  const generatedCount = Object.values(shots).filter((s) => s.status === "done").length;
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <header>
         <h1 className="text-xl font-semibold text-zinc-100">短剧生成</h1>
-        <p className="mt-1 text-sm text-zinc-500">题材 → 分集剧本与逐镜头提示词 → 逐条生成视频 → 存为未发布剧集草稿。</p>
+        <p className="mt-1 text-sm text-zinc-500">
+          题材 → 分集剧本（人物设定 + 逐镜头台词）→ 生成角色设定图 → 逐镜头生成视频 → 存为未发布剧集草稿。
+        </p>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
@@ -269,7 +415,9 @@ export default function DramaPage() {
               生成剧本
             </button>
           )}
-          <p className="text-[11px] leading-5 text-zinc-600">剧本生成按文本配额计；逐镜头视频各自消耗视频配额，互相独立。</p>
+          <p className="text-[11px] leading-5 text-zinc-600">
+            剧本与设定图按文本 / 图片配额计；逐镜头视频各自消耗视频配额，互相独立。台词目前只作字幕，音轨仍是模型自带的环境声。
+          </p>
         </section>
 
         <section className="space-y-3">
@@ -286,7 +434,7 @@ export default function DramaPage() {
           {state === "running" && (
             <div className="flex h-24 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900/50 text-sm text-zinc-400">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              正在生成分集剧本与镜头提示词…
+              正在生成分集剧本、人物设定与台词…
             </div>
           )}
 
@@ -296,10 +444,21 @@ export default function DramaPage() {
                 <h2 className="text-lg font-semibold text-zinc-100">{plan.title}</h2>
                 {plan.logline && <p className="mt-1 text-sm leading-6 text-zinc-400">{plan.logline}</p>}
                 <p className="mt-1 text-[11px] text-zinc-600">
-                  历史已记录 · {plan.episodes.length} 集 × {plan.episodes[0]?.shots.length ?? 0} 镜头/集
+                  {plan.episodes.length} 集 × {plan.episodes[0]?.shots.length ?? 0} 镜头/集 · 已生成 {generatedCount} 个镜头
                 </p>
               </div>
-              {plan.episodes.map((ep, epIdx) => (
+
+              {plan.characters.length > 0 && (
+                <CastPanel
+                  characters={plan.characters}
+                  portraits={portraits}
+                  busyName={portraitBusy}
+                  onPortrait={(name, ref) => setPortraits((prev) => ({ ...prev, [name]: ref }))}
+                  onBusy={setPortraitBusy}
+                />
+              )}
+
+              {plan.episodes.map((ep) => (
                 <div key={ep.number} className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
                   <h3 className="text-sm font-medium text-zinc-100">
                     第 {ep.number} 集 · {ep.title}
@@ -308,9 +467,18 @@ export default function DramaPage() {
                   {ep.shots.length === 0 ? (
                     <p className="text-xs text-zinc-600">无镜头</p>
                   ) : (
-                    ep.shots.map((s) => (
-                      <DramaShotRow key={s.shot} epIdx={epIdx} shot={s} onUrl={(k, url) => setShotUrls((prev) => ({ ...prev, [k]: url }))} />
-                    ))
+                    ep.shots.map((s) => {
+                      const key = shotKey(ep.number, s.shot);
+                      return (
+                        <DramaShotRow
+                          key={key}
+                          shot={s}
+                          portraits={portraits}
+                          state={shots[key] ?? { status: "idle", video: "", message: "" }}
+                          onState={(next) => setShots((prev) => ({ ...prev, [key]: next }))}
+                        />
+                      );
+                    })
                   )}
                 </div>
               ))}

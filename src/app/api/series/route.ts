@@ -12,7 +12,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const user = await currentUserFromRequest(req);
   if (!user) return fail(401, "未登录");
-  let body: { title?: string; description?: string; cover?: string; sort?: number; published?: boolean };
+  let body: { title?: string; description?: string; cover?: string; cast?: string; sort?: number; published?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -25,6 +25,7 @@ export async function POST(req: Request) {
     title,
     description: body.description ?? "",
     cover: body.cover ?? "",
+    cast: body.cast ?? "[]",
     sort: body.sort ?? 0,
     published: body.published ?? true,
   });

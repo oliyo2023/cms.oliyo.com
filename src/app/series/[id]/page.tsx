@@ -3,10 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Layers, Play } from "lucide-react";
 import SiteHeader, { SiteFooter } from "@/components/site-header";
+import EpisodePlayer from "@/components/episode-player";
 import { db } from "@/lib/drizzle";
 import { series, showcaseItems } from "@/lib/schema";
 import { and, eq } from "drizzle-orm";
 import { mediaUrl } from "@/lib/refs";
+import { parseJsonArray, type EpisodeShot } from "@/lib/episode";
 
 export const dynamic = "force-dynamic";
 
@@ -52,26 +54,34 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
 
-        <ul className="mt-8 space-y-3">
-          {episodes.map((ep, i) => (
-            <li key={ep.id}>
-              <Link
-                href={`/works/video/${ep.id}`}
-                className="group flex items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3 transition hover:border-indigo-600/60"
-              >
-                <span className="flex h-10 w-10 flex-none items-center justify-center rounded-lg bg-zinc-800 text-sm font-semibold text-zinc-400">
-                  {i + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium text-zinc-100 group-hover:text-indigo-300">{ep.title}</div>
-                  {ep.description && <p className="mt-0.5 line-clamp-1 text-xs text-zinc-500">{ep.description}</p>}
+        <ul className="mt-8 space-y-4">
+          {episodes.map((ep, i) => {
+            const shots = parseJsonArray<EpisodeShot>(ep.shots).filter((s) => s.video);
+            return (
+              <li key={ep.id} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+                <div className="mb-3 flex items-start gap-3">
+                  <span className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-zinc-800 text-xs font-semibold text-zinc-400">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-zinc-100">{ep.title}</div>
+                    {ep.description && <p className="mt-1 text-xs leading-5 text-zinc-400">{ep.description}</p>}
+                  </div>
                 </div>
-                <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-indigo-600/20 text-indigo-300 opacity-0 transition group-hover:opacity-100">
-                  <Play className="h-3.5 w-3.5" />
-                </span>
-              </Link>
-            </li>
-          ))}
+                {shots.length > 0 ? (
+                  <EpisodePlayer shots={shots} title={ep.title} />
+                ) : (
+                  <Link
+                    href={`/works/video/${ep.id}`}
+                    className="group inline-flex items-center gap-2 text-xs text-indigo-400 hover:underline"
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                    查看本集成片
+                  </Link>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </main>
       <SiteFooter />

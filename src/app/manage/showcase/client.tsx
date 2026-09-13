@@ -8,6 +8,7 @@ import Modal from "@/components/modal";
 import MediaPicker from "@/components/media-picker";
 import { emptyVideoDraft, VideoComposer, videoDraftError, type VideoDraft } from "@/components/video-composer";
 import { runVideoJob } from "@/lib/video-job";
+import { parseJsonArray, type EpisodeShot } from "@/lib/episode";
 
 type Category = "gallery" | "video" | "episode";
 
@@ -18,6 +19,7 @@ type ShowcaseItem = {
   description: string;
   media: string;
   thumb: string;
+  shots: string;
   seriesId: string | null;
   sort: number;
   published: boolean;
@@ -29,12 +31,21 @@ type Series = {
   title: string;
   description: string;
   cover: string;
+  cast: string;
   sort: number;
   published: boolean;
   createdAt: number;
 };
 
 const refToUrl = (ref: string) => (ref.startsWith("r2://") ? `/media/${ref.slice(5)}` : ref);
+/** 单集镜头进度：已生成/总数；老数据没有 shots 时返回空串。 */
+function shotProgress(shots: string): string {
+  const list = parseJsonArray<EpisodeShot>(shots);
+  if (list.length === 0) return "";
+  const done = list.filter((s) => s.video).length;
+  return ` · 镜头 ${done}/${list.length}`;
+}
+
 const fmtDate = (t: number) => new Date(t).toLocaleString("zh-CN", { dateStyle: "short", timeStyle: "short" });
 
 function useTip(): [string | null, (msg: string) => void] {
@@ -586,7 +597,9 @@ export function SeriesManager() {
                     <Film className="h-6 w-6 shrink-0 text-zinc-600" />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-xs text-zinc-200">{ep.title}</div>
-                      <div className="text-[10px] text-zinc-500">第 {ep.sort + 1} 集</div>
+                      <div className="text-[10px] text-zinc-500">
+                        第 {ep.sort + 1} 集{shotProgress(ep.shots)}
+                      </div>
                     </div>
                     <button title={ep.published ? "下线单集" : "发布单集"} className="rounded p-1 text-zinc-500 hover:text-zinc-200" onClick={() => void toggleEpPublish(s.id, ep)}>
                       {ep.published ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}

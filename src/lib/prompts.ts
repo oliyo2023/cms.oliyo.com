@@ -1,4 +1,5 @@
 import type { ChatMessage } from "@/lib/ai";
+import type { CastMember, EpisodeShot } from "@/lib/episode";
 
 export type Tone = "正式" | "轻松" | "温暖" | "犀利" | "文艺";
 export type Audience = "公众号读者" | "朋友圈" | "小红书用户" | "短视频口播" | "通用";
@@ -162,14 +163,20 @@ export function buildDramaIdeaMessages(opts: { genre: DramaGenre; seed?: string 
   ];
 }
 
+export type DramaCast = CastMember;
+
+export type DramaShot = EpisodeShot;
+
 export type DramaPlan = {
   title: string;
   logline: string;
+  /** 全剧角色设定：appearance 是可直接喂图像模型的外形描述，逐镜头复用同一张设定图。 */
+  characters: DramaCast[];
   episodes: Array<{
     number: number;
     title: string;
     summary: string;
-    shots: Array<{ shot: number; prompt: string }>;
+    shots: DramaShot[];
   }>;
 };
 
@@ -182,10 +189,16 @@ export function buildDramaMessages(opts: {
 }): ChatMessage[] {
   const system =
     "你是中文短剧编剧 + AI 分镜师。只输出 JSON，无任何解释、前后缀或 markdown 代码块标记。" +
-    "JSON 结构：{ title, logline, episodes: [{ number, title, summary, shots: [{ shot, prompt }] }] }。" +
-    "要求：1) 每集 1 段 80-150 字剧情梗概；" +
-    "2) 每镜头 prompt 是可直接喂给视频模型的中文画面描述（5-20 字，含主体/动作/场景/镜头语言，如「近景，主角摔门而出，雨夜走廊」）；" +
-    "3) 镜头数与集数严格按用户指定；4) 剧情有起承转合，最后一集给反转或钩子。";
+    "JSON 结构：{ title, logline, characters: [{ name, appearance }], " +
+    "episodes: [{ number, title, summary, shots: [{ shot, prompt, cast, dialogue }] }] }。" +
+    "要求：1) characters 是 2-4 个主要角色；appearance 是 25-50 字外形描述（年龄、发型、脸型、服装、气质），" +
+    "要具体到能据此生成稳定的人物设定图，且全剧不变；" +
+    "2) 每集 1 段 80-150 字剧情梗概；" +
+    "3) 每镜头 prompt 是可直接喂给视频模型的中文画面描述（5-20 字，含主体/动作/场景/镜头语言，如「近景，主角摔门而出，雨夜走廊」），" +
+    "描述主体时使用 characters 里的角色名；" +
+    "4) 每镜头 cast 是该镜头出场角色的名字数组（必须在 characters 里，无人物出镜给空数组）；" +
+    "5) 每镜头 dialogue 是该镜头的台词（12-25 字，无台词给空字符串）；" +
+    "6) 镜头数与集数严格按用户指定；7) 剧情有起承转合，最后一集给反转或钩子。";
   const user = [
     `题材/设定：${opts.idea}`,
     `类型：${opts.genre}`,
@@ -230,23 +243,45 @@ export function parseDramaPlan(raw: string): DramaPlan {
 function normalizeDramaPlan(obj: Record<string, unknown>): DramaPlan {
   const rawEps = obj.episodes;
   if (!Array.isArray(rawEps)) throw new Error("剧本 JSON 解析失败，请重新生成");
+  const rawCast = Array.isArray(obj.characters) ? obj.characters : [];
+  const characters: CastMember[] = [];
+  for (const c of rawCast) {
+    const rec = (c ?? {}) as Record<string, unknown>;
+    const name = String(rec.name ?? "").trim();
+    const appearance = String(rec.appearance ?? "").trim().slice(0, 200);
+    // 没有外形描述就无法生成稳定的设定图，这样的角色留着只会误导用户，直接丢弃
+    if (!name || !appearance) continue;
+    characters.push({ name: name.slice(0, 20), appearance, portrait: "" });
+  }
+  const names = new Set(characters.map((c) => c.name));
   const eps = rawEps.map((e, i) => {
     const ep = (e ?? {}) as Record<string, unknown>;
     const number = typeof ep.number === "number" ? ep.number : i + 1;
     const title = typeof ep.title === "string" && ep.title.trim() ? ep.title.trim() : `第 ${number} 集`;
     const summary = typeof ep.summary === "string" ? ep.summary.trim() : "";
     const rawShots = Array.isArray(ep.shots) ? ep.shots : [];
-    const shots = rawShots.map((s, j) => {
+    const shots: DramaShot[] = rawShots.map((s, j) => {
       const sh = (s ?? {}) as Record<string, unknown>;
       const shot = typeof sh.shot === "number" ? sh.shot : j + 1;
       const prompt = String(sh.prompt ?? "").trim().slice(0, 120);
-      return { shot, prompt };
+      // 只保留人物表里有的名字，避免模型编造的角色名指向不存在的设定图
+      const cast = (Array.isArray(sh.cast) ? sh.cast : [])
+        .map((v) => String(v ?? "").trim())
+        .filter((v) => v && names.has(v));
+      const dialogue = String(sh.dialogue ?? "")
+        .trim()
+        .replace(/^台词\s*[:：]\s*/, "")
+        .replace(/^["'“”「『]|["'“”」』]$/g, "")
+        .trim()
+        .slice(0, 120);
+      return { shot, prompt, cast, dialogue, video: "" };
     });
     return { number, title, summary, shots };
   });
   return {
     title: typeof obj.title === "string" && obj.title.trim() ? obj.title.trim() : "未命名短剧",
     logline: typeof obj.logline === "string" ? obj.logline.trim() : "",
+    characters,
     episodes: eps,
   };
 }

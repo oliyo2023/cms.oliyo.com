@@ -9,6 +9,7 @@ export async function createSeries(data: {
   title: string;
   description?: string;
   cover?: string;
+  cast?: string;
   sort?: number;
   published?: boolean;
 }): Promise<Series> {
@@ -19,6 +20,7 @@ export async function createSeries(data: {
     title: data.title,
     description: data.description ?? "",
     cover: data.cover ?? "",
+    cast: data.cast ?? "[]",
     sort: data.sort ?? 0,
     published: data.published ?? true,
     createdAt: Date.now(),
@@ -43,7 +45,7 @@ export async function listPublicSeries(): Promise<Series[]> {
 
 export async function updateSeries(
   id: string,
-  patch: Partial<Pick<Series, "title" | "description" | "cover" | "sort" | "published">>,
+  patch: Partial<Pick<Series, "title" | "description" | "cover" | "cast" | "sort" | "published">>,
 ): Promise<void> {
   await db().update(series).set(patch).where(eq(series.id, id));
 }
@@ -61,6 +63,7 @@ export async function createShowcaseItem(data: {
   description?: string;
   media?: string;
   thumb?: string;
+  shots?: string;
   seriesId?: string | null;
   sort?: number;
   published?: boolean;
@@ -73,6 +76,7 @@ export async function createShowcaseItem(data: {
     description: data.description ?? "",
     media: data.media ?? "",
     thumb: data.thumb ?? "",
+    shots: data.shots ?? "[]",
     seriesId: data.seriesId ?? null,
     sort: data.sort ?? 0,
     published: data.published ?? true,
@@ -112,7 +116,7 @@ export async function updateShowcaseItem(
   patch: Partial<
     Pick<
       ShowcaseItem,
-      "category" | "title" | "description" | "media" | "thumb" | "seriesId" | "sort" | "published"
+      "category" | "title" | "description" | "media" | "thumb" | "shots" | "seriesId" | "sort" | "published"
     >
   >,
 ): Promise<void> {

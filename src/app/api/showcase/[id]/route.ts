@@ -18,6 +18,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     description?: string;
     media?: string;
     thumb?: string;
+    shots?: string;
     seriesId?: string | null;
     sort?: number;
     published?: boolean;
